@@ -1,0 +1,62 @@
+version: 2
+project_name: frontpanel
+builds:
+  - id: bin
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.ShortCommit}}
+    gcflags:
+      - all=-N -l
+    goos:
+      - linux
+    goarch:
+      - arm64
+      - amd64
+
+upx:
+  - enabled: true
+    compress: best
+
+archives:
+  - name_template: '{{ .ProjectName }}_{{ replace .Version "v" "" }}_{{ .Os }}_{{ .Arch }}'
+    files:
+      - yang/**/*
+      - "{{ .ProjectName }}.yml"
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  version_template: "{{ .Tag }}-next"
+
+release:
+  prerelease: auto
+
+changelog:
+  use: github-native
+
+nfpms:
+  - id: frontpanel-nfpms
+    file_name_template: '{{ .ProjectName }}_{{ replace .Version "v" "" }}_{{ .Os }}_{{ .Arch }}'
+    package_name: ndk-{{ .ProjectName }}-go
+    maintainer: vista <vista@birb.network>
+    homepage: https://learn.srlinux.dev
+    description: |
+      Front Panel NDK app
+    vendor: Nokia
+    license: GNU GPLv3
+    formats:
+      - deb
+    scripts:
+      postinstall: postinstall.sh
+    bindir: /usr/local/bin
+    contents:
+      - src: ./yang
+        dst: /opt/{{ .ProjectName }}/yang
+      - src: ./{{ .ProjectName }}.yml
+        dst: /etc/opt/srlinux/appmgr/
+      - src: "./plugin/show-{{ .ProjectName }}.py"
+        dst: /etc/opt/srlinux/cli/plugins/

@@ -1,0 +1,27 @@
+module frontpanel {
+    yang-version 1.1;
+    namespace "github.com/vista-/ndk-frontpanel";
+    prefix "ndk-frontpanel";
+
+    import srl_nokia-platform {
+        prefix srl-platform;
+    }
+
+    description
+        "front panel YANG module";
+
+    revision "2026-01-05" {
+        description
+            "initial release";
+    }
+
+    augment "/srl-platform:platform" {
+        container front-panel {
+            leaf url {
+                description "Front panel image URL";
+                type string;
+                config false;
+            }
+        }
+    }
+}

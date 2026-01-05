@@ -1,0 +1,44 @@
+# IDE local settings
+.vscode
+!.vscode/launch.json
+.idea
+
+# common unneeded files
+.DS_Store
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# ignore lab backup file
+**/*.clab.y*ml.bak
+
+# ignore templated lab and app files
+lab/*.clab.yml
+frontpanel.yml
+
+# ignore dev lab files
+clab-*
+# logs dir contains logs from srlinux
+logs
+# agent binary
+build
+
+# apt debug log
+debug/apt.log
+# hard-linked dlv binary
+debug/dlv
+
+# go workspaces
+go.work*
+
+.envrc
