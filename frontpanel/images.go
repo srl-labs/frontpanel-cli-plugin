@@ -82,8 +82,7 @@ func printWithProtocol(chassisType string, protocol imageProtocol) {
 			return
 		}
 
-		selected := resolveImageProtocol(protocol)
-		if selected == imageProtocolITerm {
+		if protocol == imageProtocolITerm {
 			if err := printITermImage(os.Stdout, img, chassisType); err != nil {
 				_ = kittyimg.Fprintln(os.Stdout, img)
 			}
@@ -95,30 +94,6 @@ func printWithProtocol(chassisType string, protocol imageProtocol) {
 	} else {
 		fmt.Println("not supported")
 	}
-}
-
-func resolveImageProtocol(protocol imageProtocol) imageProtocol {
-	if protocol == imageProtocolKitty || protocol == imageProtocolITerm {
-		return protocol
-	}
-
-	// Environment override for deployments where CLI flags are not easy to set.
-	override := parseImageProtocol(os.Getenv("FRONTPANEL_IMAGE_PROTOCOL"))
-	if override == imageProtocolKitty || override == imageProtocolITerm {
-		return override
-	}
-
-	term := strings.ToLower(os.Getenv("TERM"))
-	if strings.Contains(term, "kitty") || os.Getenv("KITTY_WINDOW_ID") != "" {
-		return imageProtocolKitty
-	}
-
-	termProgram := strings.ToLower(os.Getenv("TERM_PROGRAM"))
-	if termProgram == "iterm.app" || termProgram == "vscode" || termProgram == "wezterm" || os.Getenv("VSCODE_PID") != "" {
-		return imageProtocolITerm
-	}
-
-	return imageProtocolKitty
 }
 
 func printITermImage(w io.Writer, img image.Image, imageName string) error {
