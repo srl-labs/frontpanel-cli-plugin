@@ -10,5 +10,12 @@
         "type=bind,src=/lib/modules,dst=/lib/modules"
     ],
     "workspaceFolder": "${localWorkspaceFolder}",
-    "workspaceMount": "source=${localWorkspaceFolder},target=${localWorkspaceFolder},type=bind,consistency=cached"
+    "workspaceMount": "source=${localWorkspaceFolder},target=${localWorkspaceFolder},type=bind,consistency=cached",
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.enableImages": true
+            }
+        }
+    }
 }
