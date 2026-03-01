@@ -6,7 +6,7 @@
 [discord-svg]: https://gitlab.com/rdodin/pics/-/wikis/uploads/b822984bc95d77ba92d50109c66c7afe/join-discord-btn.svg
 [discord-url]: https://discord.gg/tZvgjQ6PZf
 [codespaces-svg]: https://gitlab.com/rdodin/pics/-/wikis/uploads/80546a8c7cda8bb14aa799d26f55bd83/run-codespaces-btn.svg
-[codespaces-url]: https://codespaces.new/srl-labs/ndk-frontpanel-go?quickstart=1&devcontainer_path=.devcontainer%2Fdocker-in-docker%2Fdevcontainer.json
+[codespaces-url]: https://codespaces.new/srl-labs/ndk-frontpanel-go?quickstart=1&devcontainer_path=.devcontainer%2Fdevcontainer.json
 [w212]: https://gitlab.com/rdodin/pics/-/wikis/uploads/718a32dfa2b375cb07bcac50ae32964a/w212h1.svg
 
 This is a simple demo [NetOps Development Kit](https://learn.srlinux.dev/ndk/) (NDK)-based application for SR Linux, which displays the front panel of the network device in your terminal using terminal image protocols ([kitty graphics protocol]((https://sw.kovidgoyal.net/kitty/graphics-protocol/)) and iTerm inline images / OSC 1337).
