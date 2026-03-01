@@ -1,6 +1,15 @@
-# NDK Front Panel application written in Golang
+# Show SR Linux front panel in your terminal
 
-This is a simple demo NetOps Development Kit (NDK)-based application for SR Linux, which displays the front panel of the network device in your terminal using the [kitty graphics protocol.](https://sw.kovidgoyal.net/kitty/graphics-protocol/)
+[![Discord][discord-svg]][discord-url] [![Codespaces][codespaces-svg]][codespaces-url]  
+![w212][w212][Learn more](https://containerlab.dev/manual/codespaces)
+
+[discord-svg]: https://gitlab.com/rdodin/pics/-/wikis/uploads/b822984bc95d77ba92d50109c66c7afe/join-discord-btn.svg
+[discord-url]: https://discord.gg/tZvgjQ6PZf
+[codespaces-svg]: https://gitlab.com/rdodin/pics/-/wikis/uploads/80546a8c7cda8bb14aa799d26f55bd83/run-codespaces-btn.svg
+[codespaces-url]: https://codespaces.new/srl-labs/ndk-frontpanel-go?quickstart=1&devcontainer_path=.devcontainer%2Fdevcontainer.json
+[w212]: https://gitlab.com/rdodin/pics/-/wikis/uploads/718a32dfa2b375cb07bcac50ae32964a/w212h1.svg
+
+This is a simple demo [NetOps Development Kit](https://learn.srlinux.dev/ndk/) (NDK)-based application for SR Linux, which displays the front panel of the network device in your terminal using terminal image protocols ([kitty graphics protocol]((https://sw.kovidgoyal.net/kitty/graphics-protocol/)) and iTerm inline images / OSC 1337).
 
 ![A screenshot displaying the NDK application in action - an image of the front panel is embedded as part of the CLI output](screenshot.png)
 
@@ -14,24 +23,27 @@ You will need to have a working installation of [Golang](https://go.dev/doc/inst
 The rest of the tooling used during build and packaging are pulled from public container repository images.
 
 To try out the application, you will also need to have [Containerlab](https://containerlab.dev/install/) installed (0.68.0 or newer).  
-Additionally, _you must use a terminal application that supports the kitty graphics protocol to be able to see the embedded images in the CLI output._
+Additionally, _you must use a terminal application that supports either kitty graphics protocol or iTerm inline images (OSC 1337) to be able to see the embedded images in the CLI output._
 
-A short list of terminals with kitty support:
+A short list of terminals with kitty graphics protocol support:
 
-Mac:
+**Mac:**
+
 - Ghostty
 - KiTTY
 - iTerm2
 
-Linux:
+**Linux:**
+
 - Ghostty
 - KiTTY
 - Konsole
 
-Cross-platform:
+**Cross-platform:**
+
 - WezTerm
 
-**Note**: The VS Code Terminal does not support the kitty graphics protocol at the time of writing.
+**Note**: VS Code Integrated Terminal does not support kitty graphics protocol, but supports iTerm inline images when `"terminal.integrated.enableImages"` setting is enabled.
 
 ## Building and deploying
 
@@ -57,10 +69,23 @@ To create a package ready for installation on an SR Linux node, run `./run.sh pa
 The NDK front panel application is made of 3 components:
 
 - The NDK binary `frontpanel`  
-This binary is responsible for two things: exposing the state of the NDK application via the YANG model, and outputting the kitty graphics-coded front panel image. You can try the latter functionality out by running `frontpanel -image "7220 IXR-D2L"`.
+This binary is responsible for two things: exposing the state of the NDK application via the YANG model, and outputting the terminal-graphics-coded front panel image. You can try the latter functionality out by running `frontpanel -image "7220 IXR-D2L"`.
+
+The image protocol can be selected with:
+
+- `-image-protocol auto|kitty|iterm` (default `auto`)
+- `FRONTPANEL_IMAGE_PROTOCOL=kitty|iterm` (env override)
+
+Examples:
+
+- `frontpanel -image "7220 IXR-D2L" -image-protocol iterm`
+- `FRONTPANEL_IMAGE_PROTOCOL=iterm frontpanel -image "7220 IXR-D2L"`
 
 - The Python CLI plugin `show-frontpanel.py`  
 This simple Python CLI plugin adds the `show platform front-panel` command, which displays the front-panel by calling the NDK binary with the `-image` flag, and adds the URL as exposed by the application's YANG model to the output.
+
+The plugin auto-selects `kitty` when `TERM` indicates kitty or ghostty; otherwise it uses `iterm` (OSC 1337), which works better over SSH in terminals like VS Code.
+You can override this with `FRONTPANEL_IMAGE_PROTOCOL=kitty|iterm|auto`.
 
 - The YANG model `frontpanel.yang`  
 This YANG model exposes the state of the application in the `/platform/front-panel` container. The container contains a single leaf, `url`, pointing to an URL of a high resolution image of the SR Linux node's front panel, for easier overview.
