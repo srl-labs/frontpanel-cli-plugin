@@ -1,0 +1,72 @@
+# NDK Front Panel application written in Golang
+
+This is a simple demo NetOps Development Kit (NDK)-based application for SR Linux, which displays the front panel of the network device in your terminal using the [kitty graphics protocol.](https://sw.kovidgoyal.net/kitty/graphics-protocol/)
+
+![A screenshot displaying the NDK application in action - an image of the front panel is embedded as part of the CLI output](screenshot.png)
+
+The repository comes complete with a lab to try out the NDK application in action.
+
+## Requirements
+
+This repository is best tried out on Linux - either on a VM or bare metal works fine.
+
+You will need to have a working installation of [Golang](https://go.dev/doc/install) and [Docker](https://docs.docker.com/engine/install/) to build this application.  
+The rest of the tooling used during build and packaging are pulled from public container repository images.
+
+To try out the application, you will also need to have [Containerlab](https://containerlab.dev/install/) installed (0.68.0 or newer).  
+Additionally, _you must use a terminal application that supports the kitty graphics protocol to be able to see the embedded images in the CLI output._
+
+A short list of terminals with kitty support:
+
+Mac:
+- Ghostty
+- KiTTY
+- iTerm2
+
+Linux:
+- Ghostty
+- KiTTY
+- Konsole
+
+Cross-platform:
+- WezTerm
+
+**Note**: The VS Code Terminal does not support the kitty graphics protocol at the time of writing.
+
+## Building and deploying
+
+The helper script `run.sh` can help you build and package the app, and deploy a Containerlab topology with the NDK app pre-loaded in it.
+
+The `./run.sh deploy-all` command builds and packages the app, deploys a test topology, installs the app on the `frontpanel` Containerlab node.
+
+<details>
+<summary>Manual build steps</summary>
+
+First, template the files using the `./run.sh template-files` command.  
+Then, simply run `./run.sh build-app` to compile the application, the compiled executable can be found in `./build/`.  
+To deploy a Containerlab topology and install the application onto it, run `./run.sh deploy-lab`, and then `./run.sh install-app`.
+
+</details>
+
+After making changes to the application's code, it can be rebuilt and redeployed with the command `./run.sh redeploy-app`.
+
+To create a package ready for installation on an SR Linux node, run `./run.sh package`, which will output the Debian package to `./build/`. This .deb package can then be installed by copying it onto an SR Linux node and running `dpkg -i ./ndk-frontpanel-go*.deb`.
+
+## Usage
+
+The NDK front panel application is made of 3 components:
+
+- The NDK binary `frontpanel`  
+This binary is responsible for two things: exposing the state of the NDK application via the YANG model, and outputting the kitty graphics-coded front panel image. You can try the latter functionality out by running `frontpanel -image "7220 IXR-D2L"`.
+
+- The Python CLI plugin `show-frontpanel.py`  
+This simple Python CLI plugin adds the `show platform front-panel` command, which displays the front-panel by calling the NDK binary with the `-image` flag, and adds the URL as exposed by the application's YANG model to the output.
+
+- The YANG model `frontpanel.yang`  
+This YANG model exposes the state of the application in the `/platform/front-panel` container. The container contains a single leaf, `url`, pointing to an URL of a high resolution image of the SR Linux node's front panel, for easier overview.
+
+After the NDK application is installed, simply run `show platform front-panel`!
+
+## Cleanup
+
+To destroy the test lab, run `./run.sh destroy-lab`.
