@@ -22,6 +22,7 @@ var (
 func main() {
 	versionFlag := flag.Bool("version", false, "print the version and exit")
 	imageFlag := flag.String("image", "", "print the front panel image and exit")
+	imageProtocolFlag := flag.String("image-protocol", "auto", "image protocol: auto|kitty|iterm")
 
 	flag.Parse()
 
@@ -31,7 +32,7 @@ func main() {
 	}
 
 	if *imageFlag != "" {
-		frontpanel.Print(*imageFlag)
+		frontpanel.PrintWithProtocol(*imageFlag, *imageProtocolFlag)
 		os.Exit(0)
 	}
 
