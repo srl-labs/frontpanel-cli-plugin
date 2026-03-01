@@ -10,7 +10,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/srl-labs/bond"
-	"github.com/vista-/ndk-frontpanel/frontpanel"
+	"github.com/srl-labs/ndk-frontpanel/frontpanel"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
