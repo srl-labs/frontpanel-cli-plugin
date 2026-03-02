@@ -9,7 +9,7 @@
 [codespaces-url]: https://codespaces.new/srl-labs/ndk-frontpanel-go?quickstart=1&devcontainer_path=.devcontainer%2Fdevcontainer.json
 [w212]: https://gitlab.com/rdodin/pics/-/wikis/uploads/718a32dfa2b375cb07bcac50ae32964a/w212h1.svg
 
-This is a simple demo [NetOps Development Kit](https://learn.srlinux.dev/ndk/) (NDK)-based application for SR Linux, which displays the front panel of the network device in your terminal using terminal image protocols ([kitty graphics protocol]((https://sw.kovidgoyal.net/kitty/graphics-protocol/)) and iTerm inline images / OSC 1337).
+This is a simple demo [NetOps Development Kit](https://learn.srlinux.dev/ndk/) (NDK)-based application for SR Linux, which displays the front panel of the network device in your terminal using terminal image protocols ([kitty graphics protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/) and iTerm inline images / OSC 1337).
 
 ![A screenshot displaying the NDK application in action - an image of the front panel is embedded as part of the CLI output](screenshot.png)
 
@@ -75,6 +75,8 @@ The image protocol can be selected with:
 
 - `-image-protocol auto|kitty|iterm` (default `auto`)
 - `FRONTPANEL_IMAGE_PROTOCOL=kitty|iterm` (env override)
+- `-port-labels` or `FRONTPANEL_PORT_LABELS=1` to overlay port numbers (`1/1`, `1/2`, ...)
+- `-port-states-json '{"ethernet-1/1":"admin-up-oper-up","ethernet-1/2":"admin-up-oper-down","ethernet-1/3":"admin-down"}'` or `FRONTPANEL_PORT_STATES_JSON` to color front ports (bright green for admin+oper up, orange for admin up+oper down, no color for admin down)
 
 Examples:
 
@@ -85,7 +87,9 @@ Examples:
 This simple Python CLI plugin adds the `show platform front-panel` command, which displays the front-panel by calling the NDK binary with the `-image` flag, and adds the URL as exposed by the application's YANG model to the output.
 
 The plugin auto-selects `kitty` when `TERM` indicates kitty or ghostty; otherwise it uses `iterm` (OSC 1337), which works better over SSH in terminals like VS Code.
+It also reads front panel interface state (`/interface[name=ethernet-*]`) and forwards it to the renderer using admin/oper-aware states.
 You can override this with `FRONTPANEL_IMAGE_PROTOCOL=kitty|iterm|auto`.
+Port labels are enabled by default in the plugin (`FRONTPANEL_PORT_LABELS=1` unless explicitly overridden).
 
 - The YANG model `frontpanel.yang`  
 This YANG model exposes the state of the application in the `/platform/front-panel` container. The container contains a single leaf, `url`, pointing to an URL of a high resolution image of the SR Linux node's front panel, for easier overview.

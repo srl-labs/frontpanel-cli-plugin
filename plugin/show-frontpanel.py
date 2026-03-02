@@ -1,6 +1,8 @@
+import json
 import os
 import subprocess
 import sys
+import shutil
 
 from srlinux.location import build_path
 from srlinux.mgmt.cli import CliPlugin
@@ -24,6 +26,36 @@ class Plugin(CliPlugin):
 
         # Over SSH TERM is often xterm-256color; default to iTerm protocol.
         return "iterm"
+
+    def _front_port_states(self, state):
+        states = {}
+
+        try:
+            ifaces_path = build_path("/interface[name=ethernet-*]")
+            ifaces_data = state.server_data_store.get_data(ifaces_path, recursive=True)
+            interfaces = ifaces_data.interface.items()
+        except Exception:
+            return states
+
+        for interface in interfaces:
+            if_name = getattr(interface, "name", "")
+            if not if_name:
+                continue
+
+            admin_state = str(getattr(interface, "admin_state", "")).strip().lower()
+            oper_state = str(getattr(interface, "oper_state", "")).strip().lower()
+
+            if admin_state in ("disable", "disabled", "down"):
+                states[if_name] = "admin-down"
+                continue
+
+            if oper_state in ("up", "oper-up"):
+                states[if_name] = "admin-up-oper-up"
+                continue
+
+            states[if_name] = "admin-up-oper-down"
+
+        return states
 
     def get_required_plugins(self):
         return [
@@ -60,7 +92,24 @@ class Plugin(CliPlugin):
             "-image-protocol",
             protocol,
         ]
-        proc = subprocess.run(cmd, stdout=sys.stdout, stderr=subprocess.PIPE, text=True)
+
+        env = os.environ.copy()
+        env.setdefault("FRONTPANEL_PORT_LABELS", "1")
+        term_size = shutil.get_terminal_size((0, 0))
+        if term_size.columns > 0:
+            env.setdefault("COLUMNS", str(term_size.columns))
+        if term_size.lines > 0:
+            env.setdefault("LINES", str(term_size.lines))
+
+        front_port_states = self._front_port_states(state)
+        if front_port_states:
+            env["FRONTPANEL_PORT_STATES_JSON"] = json.dumps(
+                front_port_states, separators=(",", ":")
+            )
+
+        proc = subprocess.run(
+            cmd, stdout=sys.stdout, stderr=subprocess.PIPE, text=True, env=env
+        )
         if proc.returncode != 0:
             output.print(
                 f"Failed to render front panel image (protocol={protocol}): {proc.stderr.strip()}"
