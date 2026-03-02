@@ -21,3 +21,12 @@ topology:
         {{- if ne (env.Getenv "NDK_DEBUG") "" }}
         - ../debug/:/debug/
         {{- end }}
+
+    test:
+      kind: nokia_srlinux
+      image: ghcr.io/nokia/srlinux:25.10
+
+  links:
+    - endpoints: ["frontpanel:e1-1", "test:e1-1"]
+    - endpoints: ["frontpanel:e1-2", "test:e1-2"]
+    - endpoints: ["frontpanel:e1-3", "test:e1-3"]

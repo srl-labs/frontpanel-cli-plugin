@@ -2,6 +2,7 @@ package frontpanel
 
 import (
 	"context"
+	"strings"
 
 	"github.com/openconfig/gnmic/pkg/api"
 	"github.com/rs/zerolog"
@@ -87,7 +88,7 @@ func (a *App) getFrontPorts() (*map[string]string, error) {
 
 	a.logger.Debug().Msgf("GetResponse AdminState: %+v", getRespAdmin)
 
-	// Populate front port states with enable - disable admin states
+	// Populate front port states using admin state as baseline.
 	for _, notification := range getRespAdmin.GetNotification() {
 		for _, update := range notification.GetUpdate() {
 			ifName := ""
@@ -101,7 +102,13 @@ func (a *App) getFrontPorts() (*map[string]string, error) {
 				continue
 			}
 
-			frontPortStates[ifName] = update.Val.GetStringVal()
+			adminState := strings.ToLower(strings.TrimSpace(update.Val.GetStringVal()))
+			if adminState == "disable" || adminState == "disabled" || adminState == "down" {
+				frontPortStates[ifName] = "admin-down"
+				continue
+			}
+
+			frontPortStates[ifName] = "admin-up-oper-down"
 		}
 	}
 
@@ -118,7 +125,7 @@ func (a *App) getFrontPorts() (*map[string]string, error) {
 
 	a.logger.Debug().Msgf("GetResponse OperState: %+v", getRespOper)
 
-	// For admin-state enable, get the actual oper-state
+	// For admin-up ports, use the current oper state.
 	for _, notification := range getRespOper.GetNotification() {
 		for _, update := range notification.GetUpdate() {
 			ifName := ""
@@ -128,12 +135,18 @@ func (a *App) getFrontPorts() (*map[string]string, error) {
 				}
 			}
 
-			// Skip interfaces that are in admin-disable state
-			if ifName == "" || frontPortStates[ifName] == "disable" {
+			// Skip interfaces that are in admin-down state.
+			if ifName == "" || frontPortStates[ifName] == "admin-down" {
 				continue
 			}
 
-			frontPortStates[ifName] = update.Val.GetStringVal()
+			operState := strings.ToLower(strings.TrimSpace(update.Val.GetStringVal()))
+			if operState == "up" || operState == "oper-up" {
+				frontPortStates[ifName] = "admin-up-oper-up"
+				continue
+			}
+
+			frontPortStates[ifName] = "admin-up-oper-down"
 		}
 	}
 

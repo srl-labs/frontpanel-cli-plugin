@@ -23,6 +23,7 @@ func main() {
 	versionFlag := flag.Bool("version", false, "print the version and exit")
 	imageFlag := flag.String("image", "", "print the front panel image and exit")
 	imageProtocolFlag := flag.String("image-protocol", "auto", "image protocol: auto|kitty|iterm")
+	portLabelsFlag := flag.Bool("port-labels", false, "overlay port labels (1/1, 1/2, ...)")
 	portStatesJSONFlag := flag.String("port-states-json", "",
 		"JSON object of interface state by name, e.g. {\"ethernet-1/1\":\"up\"}")
 
@@ -39,8 +40,17 @@ func main() {
 			portStatesJSON = os.Getenv("FRONTPANEL_PORT_STATES_JSON")
 		}
 
-		frontpanel.PrintWithProtocolAndPortStates(*imageFlag, *imageProtocolFlag,
-			frontpanel.ParsePortStatesJSON(portStatesJSON))
+		portLabels := *portLabelsFlag
+		if !portLabels {
+			portLabels = frontpanel.ParsePortLabelsValue(os.Getenv("FRONTPANEL_PORT_LABELS"))
+		}
+
+		frontpanel.PrintWithProtocolAndPortStatesAndLabels(
+			*imageFlag,
+			*imageProtocolFlag,
+			frontpanel.ParsePortStatesJSON(portStatesJSON),
+			portLabels,
+		)
 		os.Exit(0)
 	}
 

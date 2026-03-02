@@ -15,10 +15,15 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	_ "github.com/HugoSmits86/nativewebp"
 
 	"github.com/dolmen-go/kittyimg"
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/gofont/goregular"
+	"golang.org/x/image/font/opentype"
+	"golang.org/x/image/math/fixed"
 )
 
 //go:embed images/d2l.webp
@@ -61,8 +66,16 @@ const (
 var lastNumberPattern = regexp.MustCompile(`\d+`)
 
 var (
-	portUpColor   = color.RGBA{R: 33, G: 201, B: 110, A: 255}
-	portDownColor = color.RGBA{R: 227, G: 68, B: 68, A: 255}
+	portUpColor              = color.RGBA{R: 33, G: 201, B: 110, A: 255}
+	portAdminUpOperDownColor = color.RGBA{R: 245, G: 130, B: 32, A: 255}
+)
+
+var (
+	labelFontOnce sync.Once
+	labelFont     *opentype.Font
+	labelFontErr  error
+	labelFaceMu   sync.Mutex
+	labelFaces    = map[int]font.Face{}
 )
 
 type portLayout struct {
@@ -76,12 +89,12 @@ type portLayout struct {
 
 var chassisPortLayouts = map[string]portLayout{
 	"7220 IXR-D2L": {
-		topRowX: []int{73, 96, 128, 151, 182, 206, 237, 261, 292, 316, 347, 371, 402, 425, 456, 480},
-		botRowX: []int{73, 96, 128, 151, 182, 206, 237, 261, 292, 316, 347, 371, 402, 425, 456, 480},
-		topY:    17,
-		botY:    42,
-		width:   22,
-		height:  10,
+		topRowX: []int{172, 233, 312, 374, 453, 514, 593, 655, 734, 795, 875, 936, 1015, 1077, 1156, 1217},
+		botRowX: []int{172, 233, 312, 374, 453, 514, 593, 655, 734, 795, 875, 936, 1015, 1077, 1156, 1217},
+		topY:    13,
+		botY:    73,
+		width:   59,
+		height:  44,
 	},
 	"7220 IXR-D3L": {
 		topRowX: []int{123, 154, 184, 215, 251, 282, 312, 343, 379, 410, 440, 471, 507, 538, 568, 599},
@@ -119,7 +132,7 @@ func Print(chassisType string) {
 }
 
 func PrintWithProtocol(chassisType string, protocol string) {
-	PrintWithProtocolAndPortStates(chassisType, protocol, nil)
+	PrintWithProtocolAndPortStatesAndLabels(chassisType, protocol, nil, false)
 }
 
 func ParsePortStatesJSON(payload string) map[string]string {
@@ -136,11 +149,24 @@ func ParsePortStatesJSON(payload string) map[string]string {
 	return portStates
 }
 
-func PrintWithProtocolAndPortStates(chassisType string, protocol string, portStates map[string]string) {
-	printWithProtocol(chassisType, parseImageProtocol(protocol), portStates)
+func ParsePortLabelsValue(payload string) bool {
+	switch strings.ToLower(strings.TrimSpace(payload)) {
+	case "1", "true", "yes", "y", "on", "enable", "enabled":
+		return true
+	default:
+		return false
+	}
 }
 
-func printWithProtocol(chassisType string, protocol imageProtocol, portStates map[string]string) {
+func PrintWithProtocolAndPortStates(chassisType string, protocol string, portStates map[string]string) {
+	PrintWithProtocolAndPortStatesAndLabels(chassisType, protocol, portStates, false)
+}
+
+func PrintWithProtocolAndPortStatesAndLabels(chassisType string, protocol string, portStates map[string]string, portLabels bool) {
+	printWithProtocol(chassisType, parseImageProtocol(protocol), portStates, portLabels)
+}
+
+func printWithProtocol(chassisType string, protocol imageProtocol, portStates map[string]string, portLabels bool) {
 	if chassisDef, ok := chassisImages[chassisType]; ok {
 		f := bytes.NewReader(chassisDef.Image)
 		img, _, err := image.Decode(f)
@@ -149,6 +175,9 @@ func printWithProtocol(chassisType string, protocol imageProtocol, portStates ma
 		}
 
 		img = applyPortStateOverlay(chassisType, img, portStates)
+		if portLabels {
+			img = applyPortLabelOverlay(chassisType, img)
+		}
 
 		selected := resolveImageProtocol(protocol)
 		if selected == imageProtocolITerm {
@@ -199,7 +228,7 @@ func applyPortStateOverlay(chassisType string, base image.Image, portStates map[
 		return base
 	}
 
-	rects := layout.portRects()
+	rects := portRectsForChassis(chassisType, layout)
 	if len(rects) == 0 {
 		return base
 	}
@@ -214,15 +243,80 @@ func applyPortStateOverlay(chassisType string, base image.Image, portStates map[
 		}
 
 		rect := rects[portIndex-1]
-		clr := portDownColor
-		if isUpState(state) {
-			clr = portUpColor
+		clr, ok := stateOverlayColor(state)
+		if !ok {
+			continue
 		}
 
 		drawPortOverlay(dst, rect, clr)
 	}
 
 	return dst
+}
+
+func applyPortLabelOverlay(chassisType string, base image.Image) image.Image {
+	layout, ok := chassisPortLayouts[chassisType]
+	if !ok {
+		return base
+	}
+
+	rects := portRectsForChassis(chassisType, layout)
+	if len(rects) == 0 {
+		return base
+	}
+
+	dst := image.NewRGBA(base.Bounds())
+	draw.Draw(dst, dst.Bounds(), base, base.Bounds().Min, draw.Src)
+
+	for idx, rect := range rects {
+		drawPortLabel(dst, rect, fmt.Sprintf("1/%d", idx+1))
+	}
+
+	return dst
+}
+
+func portRectsForChassis(chassisType string, layout portLayout) []image.Rectangle {
+	if chassisType != "7220 IXR-D2L" {
+		return layout.portRects()
+	}
+	return d2lPortRects(layout)
+}
+
+func d2lPortRects(layout portLayout) []image.Rectangle {
+	if len(layout.topRowX) < 2 {
+		return nil
+	}
+
+	padX := 2
+	padY := 2
+	topY := layout.topY
+	midY := layout.botY
+	botY := 133 // D2L third row cages
+	botH := 42  // D2L third row cage height
+	topH := layout.height
+	midH := layout.height
+
+	rectFor := func(x int, y int, h int) image.Rectangle {
+		return image.Rect(x+padX, y+padY, x+layout.width-padX, y+h-padY)
+	}
+
+	rects := make([]image.Rectangle, 0, (len(layout.topRowX)/2)*6)
+	for pair := 0; pair+1 < len(layout.topRowX); pair += 2 {
+		xLeft := layout.topRowX[pair]
+		xRight := layout.topRowX[pair+1]
+
+		// D2L numbering order per 2-column block: 1 4 / 2 5 / 3 6
+		rects = append(rects,
+			rectFor(xLeft, topY, topH),
+			rectFor(xLeft, midY, midH),
+			rectFor(xLeft, botY, botH),
+			rectFor(xRight, topY, topH),
+			rectFor(xRight, midY, midH),
+			rectFor(xRight, botY, botH),
+		)
+	}
+
+	return rects
 }
 
 func (l portLayout) portRects() []image.Rectangle {
@@ -236,33 +330,108 @@ func (l portLayout) portRects() []image.Rectangle {
 	return rects
 }
 
-func drawPortOverlay(dst *image.RGBA, rect image.Rectangle, border color.RGBA) {
+func drawPortOverlay(dst *image.RGBA, rect image.Rectangle, fillBase color.RGBA) {
 	r := rect.Intersect(dst.Bounds())
 	if r.Empty() {
 		return
 	}
 
-	fill := color.RGBA{R: border.R, G: border.G, B: border.B, A: 44}
+	// Use non-premultiplied alpha for correct blending in draw.Over.
+	fill := color.NRGBA{R: fillBase.R, G: fillBase.G, B: fillBase.B, A: 98}
 	draw.Draw(dst, r, &image.Uniform{C: fill}, image.Point{}, draw.Over)
+}
 
-	border.A = 230
-	for x := r.Min.X; x < r.Max.X; x++ {
-		dst.SetRGBA(x, r.Min.Y, border)
-		dst.SetRGBA(x, r.Max.Y-1, border)
-	}
-	for y := r.Min.Y; y < r.Max.Y; y++ {
-		dst.SetRGBA(r.Min.X, y, border)
-		dst.SetRGBA(r.Max.X-1, y, border)
+func drawPortLabel(dst *image.RGBA, rect image.Rectangle, label string) {
+	r := rect.Intersect(dst.Bounds())
+	if r.Empty() || strings.TrimSpace(label) == "" {
+		return
 	}
 
-	ledHeight := 3
-	if r.Dy() <= 6 {
-		ledHeight = 1
+	face := labelFaceForRect(r, label)
+	if face == nil {
+		return
 	}
-	led := image.Rect(r.Min.X+1, r.Max.Y-ledHeight-1, r.Max.X-1, r.Max.Y-1).Intersect(dst.Bounds())
-	if !led.Empty() {
-		draw.Draw(dst, led, &image.Uniform{C: border}, image.Point{}, draw.Over)
+
+	ascent := face.Metrics().Ascent.Round()
+	descent := face.Metrics().Descent.Round()
+	textHeight := ascent + descent
+
+	measure := &font.Drawer{Face: face}
+	textWidth := measure.MeasureString(label).Round()
+
+	x := r.Min.X + (r.Dx()-textWidth)/2
+	baseline := r.Min.Y + (r.Dy()-textHeight)/2 + ascent
+
+	shadow := &image.Uniform{C: color.NRGBA{A: 220}}
+	text := &image.Uniform{C: color.NRGBA{R: 245, G: 245, B: 245, A: 255}}
+
+	d := &font.Drawer{Dst: dst, Face: face}
+	d.Src = shadow
+	d.Dot = fixed.P(x+1, baseline+1)
+	d.DrawString(label)
+	d.Src = text
+	d.Dot = fixed.P(x, baseline)
+	d.DrawString(label)
+}
+
+func labelFaceForRect(r image.Rectangle, label string) font.Face {
+	minPx := 7
+	maxPx := r.Dy() - 1
+	if maxPx > 18 {
+		maxPx = 18
 	}
+	if maxPx < minPx {
+		maxPx = minPx
+	}
+
+	maxW := r.Dx() - 2
+	maxH := r.Dy() - 1
+	if maxW < 1 || maxH < 1 {
+		return nil
+	}
+
+	for px := maxPx; px >= minPx; px-- {
+		face := labelFace(px)
+		if face == nil {
+			continue
+		}
+
+		d := &font.Drawer{Face: face}
+		textW := d.MeasureString(label).Round()
+		textH := face.Metrics().Ascent.Round() + face.Metrics().Descent.Round()
+		if textW <= maxW && textH <= maxH {
+			return face
+		}
+	}
+
+	return labelFace(minPx)
+}
+
+func labelFace(px int) font.Face {
+	labelFontOnce.Do(func() {
+		labelFont, labelFontErr = opentype.Parse(goregular.TTF)
+	})
+	if labelFontErr != nil || labelFont == nil {
+		return nil
+	}
+
+	labelFaceMu.Lock()
+	defer labelFaceMu.Unlock()
+	if face, ok := labelFaces[px]; ok {
+		return face
+	}
+
+	face, err := opentype.NewFace(labelFont, &opentype.FaceOptions{
+		Size:    float64(px),
+		DPI:     72,
+		Hinting: font.HintingFull,
+	})
+	if err != nil {
+		return nil
+	}
+
+	labelFaces[px] = face
+	return face
 }
 
 func parseInterfaceIndex(ifName string) (int, bool) {
@@ -286,12 +455,28 @@ func parseInterfaceIndex(ifName string) (int, bool) {
 	return idx, true
 }
 
-func isUpState(state string) bool {
-	switch strings.ToLower(strings.TrimSpace(state)) {
-	case "up", "enable", "enabled", "oper-up":
-		return true
+func stateOverlayColor(state string) (color.RGBA, bool) {
+	s := strings.ToLower(strings.TrimSpace(state))
+	s = strings.ReplaceAll(s, "_", "-")
+	switch s {
+	case "", "disable", "disabled", "admin-down", "admin-disable":
+		return color.RGBA{}, false
+	case "admin-up-oper-up", "up", "oper-up":
+		return portUpColor, true
+	case "admin-up-oper-down", "down", "oper-down", "lower-layer-down", "dormant",
+		"not-present", "unknown", "testing", "enable", "enabled", "admin-up":
+		return portAdminUpOperDownColor, true
 	default:
-		return false
+		if strings.Contains(s, "disable") || strings.Contains(s, "admin-down") {
+			return color.RGBA{}, false
+		}
+		if strings.Contains(s, "oper-up") || s == "up" {
+			return portUpColor, true
+		}
+		if strings.Contains(s, "down") || strings.Contains(s, "admin-up") || strings.Contains(s, "enable") {
+			return portAdminUpOperDownColor, true
+		}
+		return color.RGBA{}, false
 	}
 }
 

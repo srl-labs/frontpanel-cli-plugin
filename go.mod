@@ -10,7 +10,7 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
-require golang.org/x/image v0.36.0 // indirect
+require golang.org/x/image v0.36.0
 
 require (
 	cloud.google.com/go/compute/metadata v0.5.2 // indirect

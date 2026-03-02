@@ -44,14 +44,15 @@ class Plugin(CliPlugin):
             admin_state = str(getattr(interface, "admin_state", "")).strip().lower()
             oper_state = str(getattr(interface, "oper_state", "")).strip().lower()
 
-            if admin_state == "disable":
-                states[if_name] = "down"
+            if admin_state in ("disable", "disabled", "down"):
+                states[if_name] = "admin-down"
                 continue
 
-            if oper_state:
-                states[if_name] = oper_state
-            elif admin_state:
-                states[if_name] = admin_state
+            if oper_state in ("up", "oper-up"):
+                states[if_name] = "admin-up-oper-up"
+                continue
+
+            states[if_name] = "admin-up-oper-down"
 
         return states
 
@@ -92,6 +93,7 @@ class Plugin(CliPlugin):
         ]
 
         env = os.environ.copy()
+        env.setdefault("FRONTPANEL_PORT_LABELS", "1")
         front_port_states = self._front_port_states(state)
         if front_port_states:
             env["FRONTPANEL_PORT_STATES_JSON"] = json.dumps(

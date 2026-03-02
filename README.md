@@ -75,7 +75,8 @@ The image protocol can be selected with:
 
 - `-image-protocol auto|kitty|iterm` (default `auto`)
 - `FRONTPANEL_IMAGE_PROTOCOL=kitty|iterm` (env override)
-- `-port-states-json '{"ethernet-1/1":"up","ethernet-1/2":"down"}'` or `FRONTPANEL_PORT_STATES_JSON` to color front ports (green for up, red for down)
+- `-port-labels` or `FRONTPANEL_PORT_LABELS=1` to overlay port numbers (`1/1`, `1/2`, ...)
+- `-port-states-json '{"ethernet-1/1":"admin-up-oper-up","ethernet-1/2":"admin-up-oper-down","ethernet-1/3":"admin-down"}'` or `FRONTPANEL_PORT_STATES_JSON` to color front ports (bright green for admin+oper up, orange for admin up+oper down, no color for admin down)
 
 Examples:
 
@@ -86,8 +87,9 @@ Examples:
 This simple Python CLI plugin adds the `show platform front-panel` command, which displays the front-panel by calling the NDK binary with the `-image` flag, and adds the URL as exposed by the application's YANG model to the output.
 
 The plugin auto-selects `kitty` when `TERM` indicates kitty or ghostty; otherwise it uses `iterm` (OSC 1337), which works better over SSH in terminals like VS Code.
-It also reads front panel interface state (`/interface[name=ethernet-*]`) and forwards it to the renderer so ports are tinted by oper-state.
+It also reads front panel interface state (`/interface[name=ethernet-*]`) and forwards it to the renderer using admin/oper-aware states.
 You can override this with `FRONTPANEL_IMAGE_PROTOCOL=kitty|iterm|auto`.
+Port labels are enabled by default in the plugin (`FRONTPANEL_PORT_LABELS=1` unless explicitly overridden).
 
 - The YANG model `frontpanel.yang`  
 This YANG model exposes the state of the application in the `/platform/front-panel` container. The container contains a single leaf, `url`, pointing to an URL of a high resolution image of the SR Linux node's front panel, for easier overview.
