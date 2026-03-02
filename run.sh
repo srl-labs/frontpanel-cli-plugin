@@ -212,13 +212,13 @@ function redeploy-app {
 }
 
 function create-app-symlink {
-	clab exec --label containerlab=frontpanel --cmd "sudo ln -s /tmp/build/${APPNAME} /usr/local/bin/${APPNAME}"
-	clab exec --label containerlab=frontpanel --cmd "sudo ln -s /tmp/plugin/show-${APPNAME}.py /etc/opt/srlinux/cli/plugins/show-${APPNAME}.py"
-	clab exec --label containerlab=frontpanel --cmd "sudo ln -s /tmp/${APPNAME}.yml /etc/opt/srlinux/appmgr/${APPNAME}.yml"
+	clab exec --label clab-node-name=frontpanel --cmd "sudo ln -s /tmp/build/${APPNAME} /usr/local/bin/${APPNAME}"
+	clab exec --label clab-node-name=frontpanel --cmd "sudo ln -s /tmp/plugin/show-${APPNAME}.py /etc/opt/srlinux/cli/plugins/show-${APPNAME}.py"
+	clab exec --label clab-node-name=frontpanel --cmd "sudo ln -s /tmp/${APPNAME}.yml /etc/opt/srlinux/appmgr/${APPNAME}.yml"
 }
 
 function reload-app_mgr {
-	clab exec --label containerlab=frontpanel --cmd "sr_cli tools system app-management application app_mgr reload"
+	clab exec --label clab-node-name=frontpanel --cmd "sr_cli tools system app-management application app_mgr reload"
 }
 
 #################################
