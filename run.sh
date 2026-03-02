@@ -9,7 +9,6 @@ APPNAME=frontpanel
 GOPKGNAME=${APPNAME}
 BIN_DIR=${BASE_DIR}/build
 BINARY=${BASE_DIR}/build/${APPNAME}
-LABDIR=${BASE_DIR}/lab
 LABFILE=${APPNAME}.clab.yml
 
 GOLANGCI_CMD="sudo docker run -t --rm -v $(pwd):/app -w /app golangci/golangci-lint:v1.60.3 golangci-lint"
@@ -39,23 +38,9 @@ fi
 #################################
 # Build and lint functions
 #################################
-function lint-yang {
-	echo "Linting YANG files"
-	#docker run --rm -v ${BASE_DIR}:/work ${YANGLINT_IMAGE} yang/*.yang
-}
-
-function lint-yaml {
-	echo "Linting YAML files"
-	docker run --rm -v ${BASE_DIR}/${APPNAME}.yml:/data/${APPNAME}.yml cytopia/yamllint -d relaxed .
-}
 
 function golangci-lint {
 	${GOLANGCI_CMD} ${GOLANGCI_FLAGS}
-}
-
-function lint {
-	lint-yang
-	lint-yaml
 }
 
 GOFUMPT_CMD="docker run --rm -it -e GOFUMPT_SPLIT_LONG_LINES=on -v ${BASE_DIR}:/work ghcr.io/hellt/gofumpt:v0.7.0"
@@ -101,39 +86,16 @@ function build-app {
 #################################
 function deploy-all {
 	check-clab-version
-	template-files
+	format
 	build-app
 	deploy-lab
-	install-app
-}
-
-# This function is used to re-deploy the app
-# without re-deploying the lab
-# The workflow is:
-# 1. first deploy the lab with `./run.sh deploy-all`
-# 2. make changes to the app code
-# 3. run `./run.sh build-restart-app`
-# which will rebuild the app and restart it without
-# requiring to re-deploy the lab
-function build-restart-app {
-	build-app
-	reload-app_mgr
-	sleep 3 # wait 3s for app_mgr to reload
-	restart-app
-}
-
-function template-files {
-	template-lab
-	template-app
 }
 
 #################################
 # Lab functions
 #################################
 function deploy-lab {
-	mkdir -p logs/srl
-	mkdir -p logs/frontpanel
-	containerlab deploy -c -t ${LABDIR}
+	containerlab deploy -c
 }
 
 function destroy-lab {
@@ -149,74 +111,6 @@ function check-clab-version {
         Run 'sudo containerlab version upgrade' or use other installation options - https://containerlab.dev/install"
 		exit 1
 	fi
-}
-
-# template lab file. When NDK_DEBUG env var is set to any value
-# the debug section is added to the lab file
-function template-lab {
-	echo "Templating lab file"
-	sudo docker run --rm -e NDK_DEBUG=${NDK_DEBUG} -v ${BASE_DIR}/lab/:/tmp/ \
-		${GOMPLATE_IMAGE} \
-		--file /tmp/${LABFILE}.go.tpl -o /tmp/${LABFILE}
-}
-
-#################################
-# App functions
-#################################
-
-# template app file. When NDK_DEBUG env var is set to any value
-# the debug section is added to the app configuration file.
-function template-app {
-	echo "Templating app file"
-	sudo docker run --rm -e NDK_DEBUG=${NDK_DEBUG} -e NOWAIT=${NOWAIT} \
-		-v ${BASE_DIR}:/tmp \
-		${GOMPLATE_IMAGE} \
-		--file /tmp/${APPNAME}.yml.go.tpl -o /tmp/${APPNAME}.yml
-}
-
-# install-app creates app symlinks and reloads app_mgr
-# which effectively installs and starts the app as app_mgr
-# becomes aware of it
-# this technique is used so that we can re-build the app later
-# and have the new binary picked up by app_mgr without redeploying the lab
-function install-app {
-	create-app-symlink
-	reload-app_mgr
-}
-
-function show-app-status {
-	clab exec --label containerlab=frontpanel --cmd "sr_cli show system application ${APPNAME}"
-}
-
-function restart-app {
-	clab exec --label containerlab=frontpanel --cmd "sr_cli tools system app-management application ${APPNAME} restart"
-}
-
-function reload-app {
-	clab exec --label containerlab=frontpanel --cmd "sr_cli tools system app-management application ${APPNAME} reload"
-}
-
-function stop-app {
-	clab exec --label containerlab=frontpanel --cmd "sr_cli tools system app-management application ${APPNAME} stop"
-}
-
-function start-app {
-	clab exec --label containerlab=frontpanel --cmd "sr_cli tools system app-management application ${APPNAME} start"
-}
-
-function redeploy-app {
-	build-app
-	reload-app
-}
-
-function create-app-symlink {
-	clab exec --label clab-node-name=frontpanel --cmd "sudo ln -s /tmp/build/${APPNAME} /usr/local/bin/${APPNAME}"
-	clab exec --label clab-node-name=frontpanel --cmd "sudo ln -s /tmp/plugin/show-${APPNAME}.py /etc/opt/srlinux/cli/plugins/show-${APPNAME}.py"
-	clab exec --label clab-node-name=frontpanel --cmd "sudo ln -s /tmp/${APPNAME}.yml /etc/opt/srlinux/appmgr/${APPNAME}.yml"
-}
-
-function reload-app_mgr {
-	clab exec --label clab-node-name=frontpanel --cmd "sr_cli tools system app-management application app_mgr reload"
 }
 
 #################################
