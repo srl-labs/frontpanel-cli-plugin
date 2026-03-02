@@ -24,7 +24,7 @@
 
 # ignore templated lab and app files
 lab/*.clab.yml
-frontpanel.yml
+
 
 # ignore dev lab files
 clab-*

@@ -85,8 +85,6 @@ function format {
 }
 
 function build-app {
-	lint
-	format
 	echo "Building application"
 	mkdir -p ${BIN_DIR}
 	go mod tidy
