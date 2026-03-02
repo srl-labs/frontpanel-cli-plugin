@@ -316,6 +316,55 @@ func d2lPortRects(layout portLayout) []image.Rectangle {
 		)
 	}
 
+	rects = append(rects, d2lRightSidePortRects()...)
+	return rects
+}
+
+func d2lRightSidePortRects() []image.Rectangle {
+	inset := func(r image.Rectangle, dx int, dy int) image.Rectangle {
+		return image.Rect(r.Min.X+dx, r.Min.Y+dy, r.Max.X-dx, r.Max.Y-dy)
+	}
+
+	splitDualCage := func(r image.Rectangle) (image.Rectangle, image.Rectangle) {
+		mid := r.Min.X + (r.Dx() / 2)
+		left := image.Rect(r.Min.X, r.Min.Y, mid, r.Max.Y)
+		right := image.Rect(mid, r.Min.Y, r.Max.X, r.Max.Y)
+		// Keep labels out of the center divider between dual cages.
+		if left.Dx() > 4 {
+			left.Max.X--
+		}
+		if right.Dx() > 4 {
+			right.Min.X++
+		}
+		return left, right
+	}
+
+	topDualCages := []image.Rectangle{
+		image.Rect(1379, 77, 1550, 118),
+		image.Rect(1568, 77, 1739, 118),
+	}
+	bottomDualCages := []image.Rectangle{
+		image.Rect(1379, 135, 1550, 176),
+		image.Rect(1568, 135, 1739, 176),
+	}
+
+	rects := make([]image.Rectangle, 0, 10)
+	for i := range topDualCages {
+		top := inset(topDualCages[i], 2, 2)
+		bottom := inset(bottomDualCages[i], 2, 2)
+
+		topLeft, topRight := splitDualCage(top)
+		bottomLeft, bottomRight := splitDualCage(bottom)
+
+		// D2L ports 49..56 are numbered odd on top, even below, left to right.
+		rects = append(rects, topLeft, bottomLeft, topRight, bottomRight)
+	}
+
+	// D2L ports 57/58 are the stacked cages at the far right.
+	rect57 := inset(image.Rect(1759, 13, 1819, 57), 2, 2)
+	rect58 := inset(image.Rect(1759, 73, 1819, 117), 2, 2)
+	rects = append(rects, rect57, rect58)
+
 	return rects
 }
 
