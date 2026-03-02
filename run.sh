@@ -29,10 +29,6 @@ else
 	# when NDK_DEBUG is set
 	LDFLAGS="$COMMON_LDFLAGS"
 	GCFLAGS="all=-N -l"
-
-	# links the dlv binary to the debug directory as a hardlink
-	# making it available to the frontpanel container when running in debug mode.
-	ln -f $(which dlv) ${BASE_DIR}/debug/
 fi
 
 #################################
