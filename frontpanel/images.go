@@ -24,6 +24,7 @@ import (
 	"golang.org/x/image/font/gofont/goregular"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
+	"golang.org/x/term"
 )
 
 //go:embed images/d2l.webp
@@ -186,11 +187,50 @@ func printWithProtocol(chassisType string, protocol imageProtocol, portStates ma
 			return
 		}
 
-		_ = kittyimg.Fprintln(os.Stdout, img)
+		_ = printKittyImage(os.Stdout, img)
 
 	} else {
 		fmt.Println("not supported")
 	}
+}
+
+func printKittyImage(w io.Writer, img image.Image) error {
+	cols := terminalColumns(w)
+	if cols <= 0 {
+		return kittyimg.Fprintln(w, img)
+	}
+
+	var raw bytes.Buffer
+	if err := kittyimg.Fprintln(&raw, img); err != nil {
+		return kittyimg.Fprintln(w, img)
+	}
+
+	data := raw.Bytes()
+	semi := bytes.IndexByte(data, ';')
+	if semi <= 0 {
+		return kittyimg.Fprintln(w, img)
+	}
+
+	header := append([]byte{}, data[:semi]...)
+	if len(header) > 0 && header[len(header)-1] == ',' {
+		header = append(header[:len(header)-1], []byte(fmt.Sprintf("c=%d,", cols))...)
+	}
+	header = append(header, data[semi:]...)
+	_, err := w.Write(header)
+	return err
+}
+
+func terminalColumns(w io.Writer) int {
+	stdout, ok := w.(*os.File)
+	if !ok {
+		return 0
+	}
+
+	cols, _, err := term.GetSize(int(stdout.Fd()))
+	if err != nil {
+		return 0
+	}
+	return cols
 }
 
 func applyPortStateOverlay(chassisType string, base image.Image, portStates map[string]string) image.Image {
