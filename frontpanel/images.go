@@ -195,8 +195,8 @@ func printWithProtocol(chassisType string, protocol imageProtocol, portStates ma
 }
 
 func printKittyImage(w io.Writer, img image.Image) error {
-	cols := terminalColumns(w)
-	if cols <= 0 {
+	cols, rows := terminalSize(w)
+	if cols <= 0 || rows <= 0 {
 		return kittyimg.Fprintln(w, img)
 	}
 
@@ -211,26 +211,101 @@ func printKittyImage(w io.Writer, img image.Image) error {
 		return kittyimg.Fprintln(w, img)
 	}
 
+	b := img.Bounds()
+	imgW := b.Dx()
+	imgH := b.Dy()
+	if imgW <= 0 || imgH <= 0 {
+		return kittyimg.Fprintln(w, img)
+	}
+
+	targetCols := cols
+	targetRows := (imgH*cols + imgW - 1) / imgW
+	if targetRows > rows {
+		targetCols = (imgW*rows + imgH - 1) / imgH
+	}
+	if targetCols > cols {
+		targetCols = cols
+	}
+	if targetCols <= 0 {
+		return kittyimg.Fprintln(w, img)
+	}
+
 	header := append([]byte{}, data[:semi]...)
-	if len(header) > 0 && header[len(header)-1] == ',' {
-		header = append(header[:len(header)-1], []byte(fmt.Sprintf("c=%d,", cols))...)
+	if len(header) > 0 {
+		header = append(header, ',')
+		header = append(header, []byte(fmt.Sprintf("c=%d", targetCols))...)
 	}
 	header = append(header, data[semi:]...)
 	_, err := w.Write(header)
 	return err
 }
 
-func terminalColumns(w io.Writer) int {
-	stdout, ok := w.(*os.File)
-	if !ok {
-		return 0
+func terminalSize(w io.Writer) (int, int) {
+	if cols, rows := terminalSizeFromWriter(w); cols > 0 && rows > 0 {
+		return cols, rows
 	}
 
-	cols, _, err := term.GetSize(int(stdout.Fd()))
-	if err != nil {
-		return 0
+	// Try common stdio streams in case output itself is not the terminal stream.
+	for _, f := range []*os.File{os.Stdout, os.Stderr, os.Stdin} {
+		if cols, rows := terminalSizeFromFile(f); cols > 0 && rows > 0 {
+			return cols, rows
+		}
 	}
-	return cols
+
+	if cols, rows := terminalSizeFromTty(); cols > 0 && rows > 0 {
+		return cols, rows
+	}
+
+	if cols, rows := terminalSizeFromEnv(); cols > 0 && rows > 0 {
+		return cols, rows
+	}
+
+	// Some execution environments (for example, CLI plugins or non-interactive runs)
+	// do not expose terminal geometry; use a conservative default so images never
+	// render at their intrinsic pixel size.
+	return 80, 24
+}
+
+func terminalSizeFromWriter(w io.Writer) (int, int) {
+	stdout, ok := w.(*os.File)
+	if !ok {
+		return 0, 0
+	}
+	return terminalSizeFromFile(stdout)
+}
+
+func terminalSizeFromFile(f *os.File) (int, int) {
+	if f == nil {
+		return 0, 0
+	}
+
+	cols, rows, err := term.GetSize(int(f.Fd()))
+	if err != nil || cols <= 0 || rows <= 0 {
+		return 0, 0
+	}
+
+	return cols, rows
+}
+
+func terminalSizeFromEnv() (int, int) {
+	cols, _ := strconv.Atoi(os.Getenv("COLUMNS"))
+	rows, _ := strconv.Atoi(os.Getenv("LINES"))
+	return cols, rows
+}
+
+func terminalSizeFromTty() (int, int) {
+	tty, err := os.Open("/dev/tty")
+	if err != nil {
+		return 0, 0
+	}
+	defer tty.Close()
+
+	cols, rows, err := term.GetSize(int(tty.Fd()))
+	if err != nil || cols <= 0 || rows <= 0 {
+		return 0, 0
+	}
+
+	return cols, rows
 }
 
 func applyPortStateOverlay(chassisType string, base image.Image, portStates map[string]string) image.Image {

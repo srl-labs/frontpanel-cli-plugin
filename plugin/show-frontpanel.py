@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import sys
+import shutil
 
 from srlinux.location import build_path
 from srlinux.mgmt.cli import CliPlugin
@@ -94,6 +95,12 @@ class Plugin(CliPlugin):
 
         env = os.environ.copy()
         env.setdefault("FRONTPANEL_PORT_LABELS", "1")
+        term_size = shutil.get_terminal_size((0, 0))
+        if term_size.columns > 0:
+            env.setdefault("COLUMNS", str(term_size.columns))
+        if term_size.lines > 0:
+            env.setdefault("LINES", str(term_size.lines))
+
         front_port_states = self._front_port_states(state)
         if front_port_states:
             env["FRONTPANEL_PORT_STATES_JSON"] = json.dumps(
