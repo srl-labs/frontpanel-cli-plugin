@@ -21,3 +21,12 @@ topology:
         {{- if ne (env.Getenv "NDK_DEBUG") "" }}
         - ../debug/:/debug/
         {{- end }}
+
+    test:
+      kind: linux
+      image: alpine:3
+
+  links:
+    - endpoints: ["frontpanel:e1-1", "test:eth1"]
+    - endpoints: ["frontpanel:e1-2", "test:eth2"]
+    - endpoints: ["frontpanel:e1-3", "test:eth3"]
