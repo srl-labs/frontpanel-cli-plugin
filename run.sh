@@ -154,6 +154,67 @@ function help {
 	printf "\nExtended help:\n  Each task has comments for general usage\n"
 }
 
+
+#########################################
+#### Dev env functions
+#########################################
+function get-srl-venv-requirements {
+    mkdir -p ./private
+    # get the venv requirements from the container 
+    sudo docker exec -i -t ${APPNAME} /opt/srlinux/python/virtual-env/bin/pip freeze \
+    > ./private/requirements.txt
+}
+
+# keep only the packages that the plugin code needs
+# the packages are provided in the sed expression
+# that will leave only the mentioned packages
+# and will comment out all the rest, so they won't be installed
+# in the local env.
+#
+# the uptime plugin does not need any extra packages from the venv
+# but we just show this as an example for more complex cases
+function filter-srl-venv-requirements {
+    # only keep the useful packages
+    sed -i "/^jinja2\|^mypy/I!s/^/#/" ./private/requirements.txt
+}
+
+function get-uv {
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+}
+
+# install fetched requirements to the local venv
+function install-uv-deps {
+    uv add --requirements ./private/requirements.txt
+}
+
+
+# copy out the srlinux cli package from the container to the host.
+# will be available in ./src/srlinux directory
+function fetch-srl-cli-package {
+    sudo docker cp $(APPNAME):/opt/srlinux/python/virtual-env/lib/python3.11/dist-packages/srlinux ./src
+}
+
+
+function check-uv {
+    # error if uv is not in the path
+    if ! command -v uv &> /dev/null;
+    then
+        echo "uv could not be found";
+    fi
+
+}
+
+# run all functions to setup the dev env
+# from the ground up
+function setup-dev-env {
+    check-uv
+    deploy-lab
+    get-srl-venv-requirements
+    filter-srl-venv-requirements
+    install-uv-deps
+    fetch-srl-cli-package
+}
+
 # This idea is heavily inspired by: https://github.com/adriancooney/Taskfile
 TIMEFORMAT=$'\nTask completed in %3lR'
 time "${@:-help}"

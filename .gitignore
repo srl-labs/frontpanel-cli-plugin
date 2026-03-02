@@ -42,3 +42,5 @@ debug/dlv
 go.work*
 
 .envrc
+
+private
