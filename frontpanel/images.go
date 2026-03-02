@@ -20,10 +20,12 @@ import (
 	_ "github.com/HugoSmits86/nativewebp"
 
 	"github.com/dolmen-go/kittyimg"
+	xdraw "golang.org/x/image/draw"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/gofont/goregular"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
+	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 )
 
@@ -211,21 +213,7 @@ func printKittyImage(w io.Writer, img image.Image) error {
 		return kittyimg.Fprintln(w, img)
 	}
 
-	b := img.Bounds()
-	imgW := b.Dx()
-	imgH := b.Dy()
-	if imgW <= 0 || imgH <= 0 {
-		return kittyimg.Fprintln(w, img)
-	}
-
-	targetCols := cols
-	targetRows := (imgH*cols + imgW - 1) / imgW
-	if targetRows > rows {
-		targetCols = (imgW*rows + imgH - 1) / imgH
-	}
-	if targetCols > cols {
-		targetCols = cols
-	}
+	targetCols, _ := fitImageToCells(img, cols, rows)
 	if targetCols <= 0 {
 		return kittyimg.Fprintln(w, img)
 	}
@@ -238,6 +226,70 @@ func printKittyImage(w io.Writer, img image.Image) error {
 	header = append(header, data[semi:]...)
 	_, err := w.Write(header)
 	return err
+}
+
+func fitImageToCells(img image.Image, maxCols int, maxRows int) (int, int) {
+	if maxCols <= 0 || maxRows <= 0 {
+		return 0, 0
+	}
+
+	b := img.Bounds()
+	imgW := b.Dx()
+	imgH := b.Dy()
+	if imgW <= 0 || imgH <= 0 {
+		return 0, 0
+	}
+
+	targetCols := maxCols
+	targetRows := (imgH*targetCols + imgW - 1) / imgW
+	if targetRows > maxRows {
+		targetRows = maxRows
+		targetCols = (imgW*targetRows + imgH - 1) / imgH
+	}
+
+	if targetCols > maxCols {
+		targetCols = maxCols
+	}
+	if targetRows > maxRows {
+		targetRows = maxRows
+	}
+	if targetCols < 1 {
+		targetCols = 1
+	}
+	if targetRows < 1 {
+		targetRows = 1
+	}
+
+	return targetCols, targetRows
+}
+
+func fitImageToPixels(img image.Image, maxW int, maxH int) (int, int) {
+	if maxW <= 0 || maxH <= 0 {
+		return 0, 0
+	}
+
+	b := img.Bounds()
+	imgW := b.Dx()
+	imgH := b.Dy()
+	if imgW <= 0 || imgH <= 0 {
+		return 0, 0
+	}
+
+	targetW := maxW
+	targetH := (imgH*targetW + imgW - 1) / imgW
+	if targetH > maxH {
+		targetH = maxH
+		targetW = (imgW*targetH + imgH - 1) / imgH
+	}
+
+	if targetW < 1 {
+		targetW = 1
+	}
+	if targetH < 1 {
+		targetH = 1
+	}
+
+	return targetW, targetH
 }
 
 func terminalSize(w io.Writer) (int, int) {
@@ -306,6 +358,96 @@ func terminalSizeFromTty() (int, int) {
 	}
 
 	return cols, rows
+}
+
+func terminalPixelSize(w io.Writer) (int, int) {
+	if pxW, pxH := terminalPixelSizeFromWriter(w); pxW > 0 && pxH > 0 {
+		return pxW, pxH
+	}
+
+	for _, f := range []*os.File{os.Stdout, os.Stderr, os.Stdin} {
+		if pxW, pxH := terminalPixelSizeFromFile(f); pxW > 0 && pxH > 0 {
+			return pxW, pxH
+		}
+	}
+
+	if pxW, pxH := terminalPixelSizeFromTty(); pxW > 0 && pxH > 0 {
+		return pxW, pxH
+	}
+
+	return 0, 0
+}
+
+func terminalPixelSizeFromWriter(w io.Writer) (int, int) {
+	stdout, ok := w.(*os.File)
+	if !ok {
+		return 0, 0
+	}
+	return terminalPixelSizeFromFile(stdout)
+}
+
+func terminalPixelSizeFromFile(f *os.File) (int, int) {
+	if f == nil {
+		return 0, 0
+	}
+
+	ws, err := unix.IoctlGetWinsize(int(f.Fd()), unix.TIOCGWINSZ)
+	if err != nil || ws == nil || ws.Xpixel <= 0 || ws.Ypixel <= 0 {
+		return 0, 0
+	}
+
+	return int(ws.Xpixel), int(ws.Ypixel)
+}
+
+func terminalPixelSizeFromTty() (int, int) {
+	tty, err := os.Open("/dev/tty")
+	if err != nil {
+		return 0, 0
+	}
+	defer tty.Close()
+
+	return terminalPixelSizeFromFile(tty)
+}
+
+func itermTargetPixelBounds(w io.Writer, termCols int, termRows int, targetCols int, targetRows int) (int, int) {
+	if targetCols <= 0 || targetRows <= 0 {
+		return 0, 0
+	}
+
+	cellW := 8
+	cellH := 16
+	pxW, pxH := terminalPixelSize(w)
+	if pxW > 0 && termCols > 0 {
+		if cw := pxW / termCols; cw > 0 {
+			cellW = cw
+		}
+	}
+	if pxH > 0 && termRows > 0 {
+		if ch := pxH / termRows; ch > 0 {
+			cellH = ch
+		}
+	}
+
+	return targetCols * cellW, targetRows * cellH
+}
+
+func scaleImageForITerm(w io.Writer, img image.Image, termCols int, termRows int, targetCols int, targetRows int) image.Image {
+	maxW, maxH := itermTargetPixelBounds(w, termCols, termRows, targetCols, targetRows)
+	targetW, targetH := fitImageToPixels(img, maxW, maxH)
+	if targetW <= 0 || targetH <= 0 {
+		return img
+	}
+
+	srcBounds := img.Bounds()
+	srcW := srcBounds.Dx()
+	srcH := srcBounds.Dy()
+	if targetW >= srcW && targetH >= srcH {
+		return img
+	}
+
+	dst := image.NewRGBA(image.Rect(0, 0, targetW, targetH))
+	xdraw.CatmullRom.Scale(dst, dst.Bounds(), img, srcBounds, xdraw.Src, nil)
+	return dst
 }
 
 func applyPortStateOverlay(chassisType string, base image.Image, portStates map[string]string) image.Image {
@@ -620,8 +762,23 @@ func stateOverlayColor(state string) (color.RGBA, bool) {
 }
 
 func printITermImage(w io.Writer, img image.Image, imageName string) error {
+	cols, rows := terminalSize(w)
+	targetCols, targetRows := fitImageToCells(img, cols, rows)
+	if targetCols <= 0 || targetRows <= 0 {
+		targetCols = cols
+		targetRows = rows
+	}
+	if targetCols <= 0 {
+		targetCols = 80
+	}
+	if targetRows <= 0 {
+		targetRows = 24
+	}
+
+	itermImg := scaleImageForITerm(w, img, cols, rows, targetCols, targetRows)
+
 	var encoded bytes.Buffer
-	if err := png.Encode(&encoded, img); err != nil {
+	if err := png.Encode(&encoded, itermImg); err != nil {
 		return err
 	}
 
@@ -629,6 +786,14 @@ func printITermImage(w io.Writer, img image.Image, imageName string) error {
 	name := base64.StdEncoding.EncodeToString([]byte(imageName + ".png"))
 	data := base64.StdEncoding.EncodeToString(encoded.Bytes())
 
-	_, err := fmt.Fprintf(w, "\x1b]1337;File=inline=1;size=%d;name=%s:%s\a\n", size, name, data)
+	_, err := fmt.Fprintf(
+		w,
+		"\x1b]1337;File=inline=1;size=%d;name=%s;width=%d;height=%d;preserveAspectRatio=1:%s\a\n",
+		size,
+		name,
+		targetCols,
+		targetRows,
+		data,
+	)
 	return err
 }
