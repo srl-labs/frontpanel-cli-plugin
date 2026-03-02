@@ -26,7 +26,7 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
-//go:embed images/d2l.webp
+//go:embed images/7220_IXR-D2L-3.webp
 var d2l []byte
 
 //go:embed images/d3l.webp
@@ -203,7 +203,7 @@ func applyPortStateOverlay(chassisType string, base image.Image, portStates map[
 		return base
 	}
 
-	rects := portRectsForChassis(chassisType, layout)
+	rects := portRectsForChassis(chassisType, layout, base.Bounds())
 	if len(rects) == 0 {
 		return base
 	}
@@ -235,7 +235,7 @@ func applyPortLabelOverlay(chassisType string, base image.Image) image.Image {
 		return base
 	}
 
-	rects := portRectsForChassis(chassisType, layout)
+	rects := portRectsForChassis(chassisType, layout, base.Bounds())
 	if len(rects) == 0 {
 		return base
 	}
@@ -250,14 +250,14 @@ func applyPortLabelOverlay(chassisType string, base image.Image) image.Image {
 	return dst
 }
 
-func portRectsForChassis(chassisType string, layout portLayout) []image.Rectangle {
+func portRectsForChassis(chassisType string, layout portLayout, imgBounds image.Rectangle) []image.Rectangle {
 	if chassisType != "7220 IXR-D2L" {
 		return layout.portRects()
 	}
-	return d2lPortRects(layout)
+	return d2lPortRects(layout, imgBounds)
 }
 
-func d2lPortRects(layout portLayout) []image.Rectangle {
+func d2lPortRects(layout portLayout, imgBounds image.Rectangle) []image.Rectangle {
 	if len(layout.topRowX) < 2 {
 		return nil
 	}
@@ -292,7 +292,43 @@ func d2lPortRects(layout portLayout) []image.Rectangle {
 	}
 
 	rects = append(rects, d2lRightSidePortRects()...)
+	rects = scaleRects(rects, 2048, 187, imgBounds.Dx(), imgBounds.Dy())
 	return rects
+}
+
+func scaleRects(rects []image.Rectangle, srcW int, srcH int, dstW int, dstH int) []image.Rectangle {
+	if srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0 {
+		return rects
+	}
+	if srcW == dstW && srcH == dstH {
+		return rects
+	}
+
+	scaleX := func(v int) int {
+		return (v*dstW + srcW/2) / srcW
+	}
+	scaleY := func(v int) int {
+		return (v*dstH + srcH/2) / srcH
+	}
+
+	scaled := make([]image.Rectangle, len(rects))
+	for i, r := range rects {
+		minX := scaleX(r.Min.X)
+		maxX := scaleX(r.Max.X)
+		minY := scaleY(r.Min.Y)
+		maxY := scaleY(r.Max.Y)
+
+		if maxX <= minX {
+			maxX = minX + 1
+		}
+		if maxY <= minY {
+			maxY = minY + 1
+		}
+
+		scaled[i] = image.Rect(minX, minY, maxX, maxY)
+	}
+
+	return scaled
 }
 
 func d2lRightSidePortRects() []image.Rectangle {
