@@ -134,9 +134,20 @@ class Plugin(CliPlugin):
                 front_port_states, separators=(",", ":")
             )
 
+        output.print("Front-panel debug:")
+        output.print(f"  protocol={protocol}")
+        output.print(f"  term={os.environ.get('TERM', '')}")
+        output.print(f"  term_program={os.environ.get('TERM_PROGRAM', '')}")
+        output.print(f"  cols={term_size.columns} rows={term_size.lines}")
+        output.print(f"  port_states={len(front_port_states)}")
+        output.print(f"  cmd={' '.join(cmd)}\n")
+
         proc = subprocess.run(
             cmd, stdout=sys.stdout, stderr=subprocess.PIPE, text=True, env=env
         )
+        stderr = proc.stderr.strip()
+        if stderr:
+            output.print(f"Renderer debug:\n{stderr}\n")
         if proc.returncode != 0:
             output.print(
                 f"Failed to render front panel image (protocol={protocol}): {proc.stderr.strip()}"

@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	_ "github.com/HugoSmits86/nativewebp"
 
@@ -67,7 +68,10 @@ const (
 	imageProtocolITerm imageProtocol = "iterm"
 )
 
-var lastNumberPattern = regexp.MustCompile(`\d+`)
+var (
+	lastNumberPattern = regexp.MustCompile(`\d+`)
+	csiSizePattern    = regexp.MustCompile("\x1b\\[(4|6);(\\d+);(\\d+)t")
+)
 
 var (
 	portUpColor              = color.RGBA{R: 33, G: 201, B: 110, A: 255}
@@ -315,6 +319,9 @@ func scaleImageToPixels(img image.Image, targetW int, targetH int) image.Image {
 
 func itermCellPixelSize(w io.Writer, termCols int, termRows int) (int, int) {
 	pxW, pxH := terminalPixelSize(w)
+	if pxW <= 0 || pxH <= 0 {
+		pxW, pxH = terminalPixelSizeFromCSI(w, termCols, termRows)
+	}
 	if pxW > 0 && pxH > 0 && termCols > 0 && termRows > 0 {
 		cellW := int(math.Round(float64(pxW) / float64(termCols)))
 		cellH := int(math.Round(float64(pxH) / float64(termRows)))
@@ -456,6 +463,123 @@ func terminalPixelSizeFromTty() (int, int) {
 	defer tty.Close()
 
 	return terminalPixelSizeFromFile(tty)
+}
+
+func terminalPixelSizeFromCSI(w io.Writer, termCols int, termRows int) (int, int) {
+	if termCols <= 0 || termRows <= 0 {
+		return 0, 0
+	}
+
+	stdout, ok := w.(*os.File)
+	if !ok || stdout == nil || !term.IsTerminal(int(stdout.Fd())) {
+		return 0, 0
+	}
+	stdin := os.Stdin
+	if stdin == nil || !term.IsTerminal(int(stdin.Fd())) {
+		return 0, 0
+	}
+
+	state, err := term.MakeRaw(int(stdin.Fd()))
+	if err != nil {
+		return 0, 0
+	}
+	defer func() {
+		_ = term.Restore(int(stdin.Fd()), state)
+	}()
+
+	// Request cell size first (CSI 16 t), then window pixel size (CSI 14 t).
+	_, _ = stdout.Write([]byte("\x1b[16t\x1b[14t"))
+	resp := readCSIResponse(150 * time.Millisecond)
+	if len(resp) == 0 {
+		fmt.Fprintln(os.Stderr, "frontpanel: csi response=empty")
+		return 0, 0
+	}
+
+	var cellW, cellH int
+	var winW, winH int
+	matches := csiSizePattern.FindAllSubmatch(resp, -1)
+	for _, match := range matches {
+		if len(match) < 4 {
+			continue
+		}
+		kind := string(match[1])
+		h, errH := strconv.Atoi(string(match[2]))
+		w, errW := strconv.Atoi(string(match[3]))
+		if errH != nil || errW != nil || h <= 0 || w <= 0 {
+			continue
+		}
+		switch kind {
+		case "6":
+			cellH = h
+			cellW = w
+		case "4":
+			winH = h
+			winW = w
+		}
+	}
+
+	fmt.Fprintf(
+		os.Stderr,
+		"frontpanel: csi response=%q cell=%dx%d win=%dx%d cols=%d rows=%d\n",
+		resp,
+		cellW,
+		cellH,
+		winW,
+		winH,
+		termCols,
+		termRows,
+	)
+
+	if cellW > 0 && cellH > 0 {
+		return cellW * termCols, cellH * termRows
+	}
+	if winW > 0 && winH > 0 {
+		return winW, winH
+	}
+
+	return 0, 0
+}
+
+func readCSIResponse(timeout time.Duration) []byte {
+	stdin := os.Stdin
+	if stdin == nil {
+		return nil
+	}
+	fd := int(stdin.Fd())
+	flags, err := unix.FcntlInt(uintptr(fd), unix.F_GETFL, 0)
+	if err != nil {
+		return nil
+	}
+	if _, err := unix.FcntlInt(uintptr(fd), unix.F_SETFL, flags|unix.O_NONBLOCK); err != nil {
+		return nil
+	}
+	defer func() {
+		_, _ = unix.FcntlInt(uintptr(fd), unix.F_SETFL, flags)
+	}()
+
+	var buf []byte
+	tmp := make([]byte, 128)
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		n, err := unix.Read(fd, tmp)
+		if n > 0 {
+			buf = append(buf, tmp[:n]...)
+			if bytes.ContainsRune(buf, 't') {
+				break
+			}
+			continue
+		}
+		if err != nil {
+			if err == unix.EAGAIN || err == unix.EWOULDBLOCK {
+				time.Sleep(5 * time.Millisecond)
+				continue
+			}
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	return buf
 }
 
 func applyPortStateOverlay(chassisType string, base image.Image, portStates map[string]string) image.Image {
