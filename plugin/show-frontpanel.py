@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 
+from srlinux.data.data import DataChildrenOfType
 from srlinux.location import build_path
 from srlinux.mgmt.cli import CliPlugin, CommandNodeWithArguments, RequiredPlugin
 from srlinux.mgmt.cli.cli_loader import CliLoader
@@ -61,6 +62,26 @@ class Plugin(CliPlugin):
 
         return states
 
+    def _get_chassis_type(self, state: CliState) -> str:
+        chassis_path = build_path("/platform/chassis/type")
+        state_data = state.server_data_store.get_data(chassis_path, recursive=False)
+
+        if not state_data:
+            raise ValueError("/platform/chassis/type data not available")
+
+        if not isinstance(state_data.platform, DataChildrenOfType):
+            raise ValueError("/platform is not a container")
+        platform = state_data.platform.get()
+
+        if not isinstance(platform.chassis, DataChildrenOfType):
+            raise ValueError("/platform/chassis is not a container")
+        chassis = platform.chassis.get()
+
+        if not isinstance(chassis.type, str):
+            raise ValueError("/platform/chassis/type is not a string")
+
+        return chassis.type
+
     def get_required_plugins(self):
         return [
             RequiredPlugin(module="srlinux", plugin="platform_reports"),
@@ -88,17 +109,13 @@ class Plugin(CliPlugin):
         arguments: CommandNodeWithArguments,
         **_kwargs,
     ):
-        chassis_path = build_path("/platform/chassis/type")
-        chassis_server_data = state.server_data_store.get_data(
-            chassis_path, recursive=False
-        )
-        chassis = chassis_server_data.platform.get().chassis.get()
+        chassis_type = self._get_chassis_type(state)
 
         protocol = self._image_protocol()
         cmd = [
             "/usr/local/bin/frontpanel",
             "-image",
-            chassis.type,
+            chassis_type,
             "-image-protocol",
             protocol,
         ]
@@ -126,5 +143,5 @@ class Plugin(CliPlugin):
             )
 
         output.print(
-            f"\n\n⚡ High resolution image: https://go.srlinux.dev/img-{chassis.type.replace(' ', '-').lower()}\n"
+            f"\n\n⚡ High resolution image: https://go.srlinux.dev/img-{chassis_type.replace(' ', '-').lower()}\n"
         )
