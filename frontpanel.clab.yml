@@ -1,0 +1,48 @@
+name: frontpanel
+prefix: ""
+
+topology:
+  nodes:
+    frontpanel:
+      kind: nokia_srlinux
+      image: ghcr.io/nokia/srlinux:25.10
+      binds:
+        # mount show plugin script
+        # at tmp so we can symlink it to the plugins directory,
+        # as the files in the plugins directory will have be owned by srlinux user and group
+        - plugin/show-frontpanel.py:/tmp/show-frontpanel.py
+        # mount frontpanel binary
+        - build/frontpanel:/usr/local/bin/frontpanel
+      exec:
+        - ln -s /tmp/show-frontpanel.py /etc/opt/srlinux/cli/plugins/show-frontpanel.py
+
+    test:
+      kind: linux
+      image: alpine:3
+
+  links:
+    - endpoints: ["frontpanel:e1-1", "test:eth1"]
+    - endpoints: ["frontpanel:e1-2", "test:eth2"]
+    - endpoints: ["frontpanel:e1-3", "test:eth3"]
+    - endpoints: ["frontpanel:e1-4", "test:eth4"]
+    - endpoints: ["frontpanel:e1-6", "test:eth6"]
+    - endpoints: ["frontpanel:e1-7", "test:eth7"]
+    - endpoints: ["frontpanel:e1-8", "test:eth8"]
+    - endpoints: ["frontpanel:e1-9", "test:eth9"]
+    - endpoints: ["frontpanel:e1-10", "test:eth10"]
+    - endpoints: ["frontpanel:e1-11", "test:eth11"]
+    - endpoints: ["frontpanel:e1-12", "test:eth12"]
+    - endpoints: ["frontpanel:e1-13", "test:eth13"]
+    - endpoints: ["frontpanel:e1-14", "test:eth14"]
+    - endpoints: ["frontpanel:e1-15", "test:eth15"]
+    - endpoints: ["frontpanel:e1-16", "test:eth16"]
+    - endpoints: ["frontpanel:e1-17", "test:eth17"]
+    - endpoints: ["frontpanel:e1-18", "test:eth18"]
+    - endpoints: ["frontpanel:e1-19", "test:eth19"]
+    - endpoints: ["frontpanel:e1-20", "test:eth20"]
+    - endpoints: ["frontpanel:e1-21", "test:eth21"]
+    - endpoints: ["frontpanel:e1-24", "test:eth24"]
+    - endpoints: ["frontpanel:e1-49", "test:eth49"]
+    - endpoints: ["frontpanel:e1-50", "test:eth50"]
+    - endpoints: ["frontpanel:e1-51", "test:eth51"]
+    - endpoints: ["frontpanel:e1-52", "test:eth52"]

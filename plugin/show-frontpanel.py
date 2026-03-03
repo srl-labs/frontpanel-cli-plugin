@@ -1,11 +1,16 @@
+import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
-import shutil
 
+from srlinux.data.data import DataChildrenOfType
 from srlinux.location import build_path
-from srlinux.mgmt.cli import CliPlugin
+from srlinux.mgmt.cli import CliPlugin, CommandNodeWithArguments, RequiredPlugin
+from srlinux.mgmt.cli.cli_loader import CliLoader
+from srlinux.mgmt.cli.cli_output import CliOutput
+from srlinux.mgmt.cli.cli_state import CliState
 from srlinux.syntax import Syntax
 
 
@@ -57,15 +62,35 @@ class Plugin(CliPlugin):
 
         return states
 
+    def _get_chassis_type(self, state: CliState) -> str:
+        chassis_path = build_path("/platform/chassis/type")
+        state_data = state.server_data_store.get_data(chassis_path, recursive=False)
+
+        if not state_data:
+            raise ValueError("/platform/chassis/type data not available")
+
+        if not isinstance(state_data.platform, DataChildrenOfType):
+            raise ValueError("/platform is not a container")
+        platform = state_data.platform.get()
+
+        if not isinstance(platform.chassis, DataChildrenOfType):
+            raise ValueError("/platform/chassis is not a container")
+        chassis = platform.chassis.get()
+
+        if not isinstance(chassis.type, str):
+            raise ValueError("/platform/chassis/type is not a string")
+
+        return chassis.type
+
     def get_required_plugins(self):
         return [
             RequiredPlugin(module="srlinux", plugin="platform_reports"),
         ]
 
-    def load(self, cli, **_kwargs):
+    def load(self, cli: CliLoader, arguments: argparse.Namespace):
         platform = cli.show_mode.root.get_command("platform")
 
-        frontpanel = platform.add_command(
+        platform.add_command(
             syntax=self._syntax(),
             callback=self._print,
         )
@@ -77,18 +102,20 @@ class Plugin(CliPlugin):
             help="Show image of front panel",
         )
 
-    def _print(self, state, arguments, output, **_kwargs):
-        chassis_path = build_path("/platform/chassis/type")
-        chassis_server_data = state.server_data_store.get_data(
-            chassis_path, recursive=False
-        )
-        chassis = chassis_server_data.platform.get().chassis.get()
+    def _print(
+        self,
+        state: CliState,
+        output: CliOutput,
+        arguments: CommandNodeWithArguments,
+        **_kwargs,
+    ):
+        chassis_type = self._get_chassis_type(state)
 
         protocol = self._image_protocol()
         cmd = [
             "/usr/local/bin/frontpanel",
             "-image",
-            chassis.type,
+            chassis_type,
             "-image-protocol",
             protocol,
         ]
@@ -115,11 +142,6 @@ class Plugin(CliPlugin):
                 f"Failed to render front panel image (protocol={protocol}): {proc.stderr.strip()}"
             )
 
-        sys.stdout.flush()
-
-        front_panel_path = build_path("/platform/front-panel")
-        front_panel_server_data = state.server_data_store.get_data(
-            front_panel_path, recursive=False
+        output.print(
+            f"\n\n⚡ High resolution image: https://go.srlinux.dev/img-{chassis_type.replace(' ', '-').lower()}\n"
         )
-        front_panel = front_panel_server_data.platform.get().front_panel.get()
-        output.print(f"\n\nHigh resolution image: {front_panel.url}\n")
