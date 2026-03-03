@@ -20,11 +20,10 @@ upx:
   - enabled: true
     compress: best
 
-archives:
-  - name_template: '{{ .ProjectName }}_{{ replace .Version "v" "" }}_{{ .Os }}_{{ .Arch }}'
-    files:
-      - yang/**/*
-      - "{{ .ProjectName }}.yml"
+# archives:
+#   - name_template: '{{ .ProjectName }}_{{ replace .Version "v" "" }}_{{ .Os }}_{{ .Arch }}'
+#     files:
+#       - "plugin/show-{{ .ProjectName }}.py"
 
 checksum:
   name_template: checksums.txt
@@ -34,6 +33,8 @@ snapshot:
 
 release:
   prerelease: auto
+  extra_files:
+    - glob: ./plugin/*
 
 changelog:
   use: github-native
@@ -41,22 +42,16 @@ changelog:
 nfpms:
   - id: frontpanel-nfpms
     file_name_template: '{{ .ProjectName }}_{{ replace .Version "v" "" }}_{{ .Os }}_{{ .Arch }}'
-    package_name: ndk-{{ .ProjectName }}-go
-    maintainer: vista <vista@birb.network>
+    package_name: "{{ .ProjectName }}"
+    maintainer: vista <vista@birb.network>, roman <roman@dodin.dev>
     homepage: https://learn.srlinux.dev
     description: |
-      Front Panel NDK app
+      Front Panel CLI plugin for Nokia SR Linux. Provides a command to display the front panel status and a high resolution image url of the front panel.
     vendor: Nokia
     license: GNU GPLv3
     formats:
       - deb
-    scripts:
-      postinstall: postinstall.sh
     bindir: /usr/local/bin
     contents:
-      - src: ./yang
-        dst: /opt/{{ .ProjectName }}/yang
-      - src: ./{{ .ProjectName }}.yml
-        dst: /etc/opt/srlinux/appmgr/
       - src: "./plugin/show-{{ .ProjectName }}.py"
         dst: /etc/opt/srlinux/cli/plugins/
