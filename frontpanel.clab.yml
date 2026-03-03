@@ -8,9 +8,13 @@ topology:
       image: ghcr.io/nokia/srlinux:25.10
       binds:
         # mount show plugin script
-        - plugin/show-frontpanel.py:/etc/opt/srlinux/cli/plugins/show-frontpanel.py
+        # at tmp so we can symlink it to the plugins directory,
+        # as the files in the plugins directory will have be owned by srlinux user and group
+        - plugin/show-frontpanel.py:/tmp/show-frontpanel.py
         # mount frontpanel binary
         - build/frontpanel:/usr/local/bin/frontpanel
+      exec:
+        - ln -s /tmp/show-frontpanel.py /etc/opt/srlinux/cli/plugins/show-frontpanel.py
 
     test:
       kind: linux
