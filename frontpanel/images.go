@@ -317,31 +317,25 @@ func scaleImageToPixels(img image.Image, targetW int, targetH int) image.Image {
 	return dst
 }
 
-func itermCellPixelSize(w io.Writer, termCols int, termRows int) (int, int, bool) {
+func itermCellPixelSize(w io.Writer, termCols int, termRows int) (int, int) {
 	pxW, pxH := terminalPixelSize(w)
-	if pxW > 0 && pxH > 0 && termCols > 0 && termRows > 0 {
-		cellW := int(math.Round(float64(pxW) / float64(termCols)))
-		cellH := int(math.Round(float64(pxH) / float64(termRows)))
-		if cellW > 0 && cellH > 0 {
-			return cellW, cellH, false
-		}
+	if pxW <= 0 || pxH <= 0 {
+		pxW, pxH = terminalPixelSizeFromCSI(w, termCols, termRows)
 	}
-
-	pxW, pxH = terminalPixelSizeFromCSI(w, termCols, termRows)
 	if pxW > 0 && pxH > 0 && termCols > 0 && termRows > 0 {
 		cellW := int(math.Round(float64(pxW) / float64(termCols)))
 		cellH := int(math.Round(float64(pxH) / float64(termRows)))
 		if cellW > 0 && cellH > 0 {
-			return cellW, cellH, true
+			return cellW, cellH
 		}
 	}
 
 	// Conservative defaults that avoid upscaling when pixel size is unknown.
-	return 8, 16, false
+	return 8, 16
 }
 
-func itermTargetPixelBounds(w io.Writer, img image.Image, termCols int, termRows int) (int, int, bool) {
-	cellW, cellH, fromCSI := itermCellPixelSize(w, termCols, termRows)
+func itermTargetPixelBounds(w io.Writer, img image.Image, termCols int, termRows int) (int, int) {
+	cellW, cellH := itermCellPixelSize(w, termCols, termRows)
 	maxW := 0
 	maxH := 0
 	if termCols > 0 && cellW > 0 {
@@ -351,8 +345,7 @@ func itermTargetPixelBounds(w io.Writer, img image.Image, termCols int, termRows
 		maxH = termRows * cellH
 	}
 
-	targetW, targetH := fitImageToPixels(img, maxW, maxH)
-	return targetW, targetH, fromCSI
+	return fitImageToPixels(img, maxW, maxH)
 }
 
 func terminalSize(w io.Writer) (int, int) {
@@ -498,7 +491,6 @@ func terminalPixelSizeFromCSI(w io.Writer, termCols int, termRows int) (int, int
 	_, _ = stdout.Write([]byte("\x1b[16t\x1b[14t"))
 	resp := readCSIResponse(150 * time.Millisecond)
 	if len(resp) == 0 {
-		fmt.Fprintln(os.Stderr, "frontpanel: csi response=empty")
 		return 0, 0
 	}
 
@@ -525,19 +517,6 @@ func terminalPixelSizeFromCSI(w io.Writer, termCols int, termRows int) (int, int
 		}
 	}
 
-	fmt.Fprintf(
-		os.Stderr,
-		"frontpanel: csi response=%q cell=%dx%d win=%dx%d cols=%d rows=%d dpr_env=%d\n",
-		resp,
-		cellW,
-		cellH,
-		winW,
-		winH,
-		termCols,
-		termRows,
-		csiScaleFactor(),
-	)
-
 	if cellW > 0 && cellH > 0 {
 		return cellW * termCols, cellH * termRows
 	}
@@ -546,24 +525,6 @@ func terminalPixelSizeFromCSI(w io.Writer, termCols int, termRows int) (int, int
 	}
 
 	return 0, 0
-}
-
-func csiScaleFactor() int {
-	raw := strings.TrimSpace(os.Getenv("FRONTPANEL_CSI_DPR"))
-	if raw == "" {
-		return 1
-	}
-	val, err := strconv.Atoi(raw)
-	if err != nil {
-		return 1
-	}
-	if val < 1 {
-		return 1
-	}
-	if val > 4 {
-		return 4
-	}
-	return val
 }
 
 func readCSIResponse(timeout time.Duration) []byte {
@@ -921,31 +882,7 @@ func stateOverlayColor(state string) (color.RGBA, bool) {
 
 func printITermImage(w io.Writer, img image.Image, imageName string) error {
 	cols, rows := terminalSize(w)
-	displayPxW, displayPxH, fromCSI := itermTargetPixelBounds(w, img, cols, rows)
-	if displayPxW <= 0 || displayPxH <= 0 {
-		bounds := img.Bounds()
-		displayPxW = bounds.Dx()
-		displayPxH = bounds.Dy()
-	}
-
-	encodeScale := 1
-	if fromCSI {
-		encodeScale = csiScaleFactor()
-	}
-	if encodeScale < 1 {
-		encodeScale = 1
-	}
-	maxEncodedDim := 8192
-	maxDisplayDim := displayPxW
-	if displayPxH > maxDisplayDim {
-		maxDisplayDim = displayPxH
-	}
-	for encodeScale > 1 && maxDisplayDim*encodeScale > maxEncodedDim {
-		encodeScale--
-	}
-
-	targetPxW := displayPxW * encodeScale
-	targetPxH := displayPxH * encodeScale
+	targetPxW, targetPxH := itermTargetPixelBounds(w, img, cols, rows)
 	if targetPxW <= 0 || targetPxH <= 0 {
 		bounds := img.Bounds()
 		targetPxW = bounds.Dx()
@@ -968,8 +905,8 @@ func printITermImage(w io.Writer, img image.Image, imageName string) error {
 		"\x1b]1337;File=inline=1;size=%d;name=%s;width=%dpx;height=%dpx;preserveAspectRatio=1:%s\a\n",
 		size,
 		name,
-		displayPxW,
-		displayPxH,
+		targetPxW,
+		targetPxH,
 		data,
 	)
 	return err
