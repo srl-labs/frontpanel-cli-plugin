@@ -6,7 +6,6 @@ set -o pipefail
 # abs path to the directory that hosts the run.sh script
 BASE_DIR=$(dirname "$(readlink -f "$0")")
 APPNAME=frontpanel
-GOPKGNAME=${APPNAME}
 BIN_DIR=${BASE_DIR}/build
 BINARY=${BASE_DIR}/build/${APPNAME}
 LABFILE=${APPNAME}.clab.yml
@@ -18,15 +17,13 @@ GOIMPORTS_CMD="sudo docker run --rm -it -v $(pwd):/work -w /work ghcr.io/hellt/g
 GOIMPORTS_FLAGS="-w ."
 
 COMMON_LDFLAGS="-X main.version=dev -X main.commit=$(git rev-parse --short HEAD)"
+DEBUG_BUILD=${FRONTPANEL_DEBUG}
 
-GOMPLATE_IMAGE="ghcr.io/hairyhenderson/gomplate:v4.3-alpine"
-YANGLINT_IMAGE="ghcr.io/hellt/yanglint:3.7.8"
-
-if [ -z "$NDK_DEBUG" ]; then
+if [ -z "$DEBUG_BUILD" ]; then
 	# when not in debug mode use linker flags -s -w to strip the binary
-	LDFLAGS="-s -w $COMMON_LDFLAGS\""
+	LDFLAGS="-s -w ${COMMON_LDFLAGS}"
 else
-	# when NDK_DEBUG is set
+	# when FRONTPANEL_DEBUG is set
 	LDFLAGS="$COMMON_LDFLAGS"
 	GCFLAGS="all=-N -l"
 fi
@@ -70,7 +67,7 @@ function build-app {
 	mkdir -p ${BIN_DIR}
 	go mod tidy
 
-	if [[ -n "${NDK_DEBUG}" ]]; then
+	if [[ -n "${DEBUG_BUILD}" ]]; then
 		go build -race -o ${BINARY} -ldflags="${LDFLAGS}" -gcflags="${GCFLAGS}" .
 	else
 		go build -o ${BINARY} -ldflags="${LDFLAGS}" -gcflags="${GCFLAGS}" .
@@ -95,7 +92,7 @@ function deploy-lab {
 }
 
 function destroy-lab {
-	containerlab destroy -c -t ${LABDIR}/${LABFILE}
+	containerlab destroy -c -t ${LABFILE}
 	sudo rm -rf logs/srl/* logs/frontpanel/*
 }
 
