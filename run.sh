@@ -45,7 +45,12 @@ function check-clab-version {
 # App functions
 #################################
 function install-plugin {
-	clab exec --label clab-node-name=frontpanel --cmd "sudo ln -s /tmp/plugin/show-${APPNAME}.py /etc/opt/srlinux/cli/plugins/show-${APPNAME}.py"
+	clab exec --label clab-node-name=frontpanel --cmd "sudo ln -sf /tmp/plugin/show-${APPNAME}.py /etc/opt/srlinux/cli/plugins/show-${APPNAME}.py"
+	clab exec --label clab-node-name=frontpanel --cmd "sudo cp /tmp/plugin/bin/resvg /usr/bin/resvg"
+	clab exec --label clab-node-name=frontpanel --cmd "sudo mkdir -p /usr/share/fonts/frontpanel"
+	clab exec --label clab-node-name=frontpanel --cmd "sudo cp /tmp/plugin/fonts/Arial.ttf /usr/share/fonts/frontpanel/Arial.ttf"
+	clab exec --label clab-node-name=frontpanel --cmd "sudo mkdir -p /etc/opt/srlinux/frontpanel/images"
+	clab exec --label clab-node-name=frontpanel --cmd "bash -c 'sudo cp /tmp/frontpanel/images/*.svg /etc/opt/srlinux/frontpanel/images/'"
 }
 
 _run_sh_autocomplete() {

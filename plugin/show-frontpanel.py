@@ -1,11 +1,150 @@
-import json
 import os
 import subprocess
 import sys
+import base64
+import tempfile
 
 from srlinux.location import build_path
 from srlinux.mgmt.cli import CliPlugin
 from srlinux.syntax import Syntax
+
+FONT_FILE = "/usr/share/fonts/frontpanel/Arial.ttf"
+SVG_DIR = "/etc/opt/srlinux/frontpanel/images"
+
+CHASSIS_SVG = {
+    "7220 IXR-D2L": "d2l.svg",
+    "7220 IXR-D3L": "d3l.svg",
+    "7220 IXR-D5": "d5.svg",
+}
+
+def get_chassis_svg(chassis_type):
+    filename = CHASSIS_SVG.get(chassis_type)
+    if not filename:
+        return None
+
+    path = os.path.join(SVG_DIR, filename)
+    if os.path.isfile(path):
+        return path
+
+    return None
+
+def build_port_css(port_states):
+    up = []
+    unhealthy = []
+    for if_name, state in port_states.items():
+        if state == "admin-up-oper-up":
+            up.append(if_name)
+        elif state == "admin-up-oper-down":
+            unhealthy.append(if_name)
+
+    rules = []
+    if up:
+        selector = ", ".join(f'[id="fp-{n}"]' for n in sorted(up))
+        rules.append(f"{selector} {{ fill: #21c96e; }}") # GREEN.
+    if unhealthy:
+        selector = ", ".join(f'[id="fp-{n}"]' for n in sorted(unhealthy))
+        rules.append(f"{selector} {{ fill: #f58220; }}") # ORANGE.
+
+    return "\n".join(rules)
+
+
+def get_term_size():
+    try:
+        import fcntl
+        import struct
+        import termios
+
+        buf = fcntl.ioctl(
+            sys.stdout.fileno(),
+            termios.TIOCGWINSZ,
+            b"\x00" * 8,
+        )
+        _, cols, xpixel, _ = struct.unpack("HHHH", buf)
+        return cols, xpixel or None
+    except Exception:
+        pass
+
+    return 80, None
+
+
+def svg_to_png(svg_path, width=None, css=None):
+    cmd = ["resvg"]
+
+    if width:
+        cmd += ["-w", str(width)]
+
+    if os.path.isfile(FONT_FILE):
+        cmd += ["--use-font-file", FONT_FILE]
+
+    css_file = None
+    try:
+        if css:
+            css_file = tempfile.NamedTemporaryFile(
+                mode="w", suffix=".css", delete=False
+            )
+            css_file.write(css)
+            css_file.close()
+            cmd += ["--stylesheet", css_file.name]
+
+        cmd += [svg_path, "-c"]
+
+        proc = subprocess.run(cmd, capture_output=True)
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"resvg failed: {proc.stderr.decode(errors='replace')}"
+            )
+        return proc.stdout
+    finally:
+        if css_file:
+            os.unlink(css_file.name)
+
+
+def print_iterm_image(png_bytes, cols):
+    data = base64.b64encode(png_bytes).decode("ascii")
+    size = len(png_bytes)
+    sys.stdout.write(
+        f"\033]1337;File=inline=1;size={size};width={cols}:{data}\a\n"
+    )
+    sys.stdout.flush()
+
+
+def print_kitty_image(png_bytes, cols):
+    data = base64.b64encode(png_bytes).decode("ascii")
+    CHUNK = 4096
+    first = True
+    while data:
+        chunk = data[:CHUNK]
+        data = data[CHUNK:]
+        more = 1 if data else 0
+        if first:
+            col_param = f",c={cols}" if cols else ""
+            sys.stdout.write(f"\033_Gf=100,a=T{col_param},m={more};{chunk}\033\\")
+            first = False
+        else:
+            sys.stdout.write(f"\033_Gm={more};{chunk}\033\\")
+    sys.stdout.write("\n")
+    sys.stdout.flush()
+
+
+def render_svg(chassis_type, protocol, port_states):
+    svg_path = get_chassis_svg(chassis_type)
+    if not svg_path:
+        return f"No frontpanel image for {chassis_type}"
+
+    try:
+        css = build_port_css(port_states) if port_states else None
+
+        cols, pixel_width = get_term_size()
+        png_bytes = svg_to_png(svg_path, width=pixel_width, css=css)
+
+        if protocol == "kitty":
+            print_kitty_image(png_bytes, cols)
+        else:
+            print_iterm_image(png_bytes, cols)
+
+        return None
+    except Exception as e:
+        return str(e)
 
 
 class Plugin(CliPlugin):
@@ -84,35 +223,8 @@ class Plugin(CliPlugin):
         chassis = chassis_server_data.platform.get().chassis.get()
 
         protocol = self._image_protocol()
-        cmd = [
-            "/usr/local/bin/frontpanel",
-            "-image",
-            chassis.type,
-            "-image-protocol",
-            protocol,
-        ]
+        port_states = self._front_port_states(state)
 
-        env = os.environ.copy()
-        env.setdefault("FRONTPANEL_PORT_LABELS", "1")
-        front_port_states = self._front_port_states(state)
-        if front_port_states:
-            env["FRONTPANEL_PORT_STATES_JSON"] = json.dumps(
-                front_port_states, separators=(",", ":")
-            )
-
-        proc = subprocess.run(
-            cmd, stdout=sys.stdout, stderr=subprocess.PIPE, text=True, env=env
-        )
-        if proc.returncode != 0:
-            output.print(
-                f"Failed to render front panel image (protocol={protocol}): {proc.stderr.strip()}"
-            )
-
-        sys.stdout.flush()
-
-        front_panel_path = build_path("/platform/front-panel")
-        front_panel_server_data = state.server_data_store.get_data(
-            front_panel_path, recursive=False
-        )
-        front_panel = front_panel_server_data.platform.get().front_panel.get()
-        output.print(f"\n\nHigh resolution image: {front_panel.url}\n")
+        err = render_svg(chassis.type, protocol, port_states)
+        if err:
+            output.print(f"Failed to render front panel image: {err}")
