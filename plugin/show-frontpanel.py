@@ -8,6 +8,8 @@ from srlinux.location import build_path
 from srlinux.mgmt.cli import CliPlugin
 from srlinux.syntax import Syntax
 
+DEBUG = os.environ.get("FRONTPANEL_DEBUG", "true").lower() in ("1", "true")
+
 FONT_FILE = "/usr/share/fonts/frontpanel/Arial.ttf"
 SVG_DIR = "/etc/opt/srlinux/frontpanel/images"
 
@@ -60,6 +62,8 @@ def get_term_size():
             b"\x00" * 8,
         )
         _, cols, xpixel, _ = struct.unpack("HHHH", buf)
+        if DEBUG:
+            print(f"[debug] TIOCGWINSZ: cols={cols} xpixel={xpixel}")
         return cols, xpixel or None
     except Exception:
         pass
@@ -135,6 +139,8 @@ def render_svg(chassis_type, protocol, port_states):
         css = build_port_css(port_states) if port_states else None
 
         cols, pixel_width = get_term_size()
+        if DEBUG:
+            print(f"[debug] cols={cols} pixel_width={pixel_width} protocol={protocol}")
         png_bytes = svg_to_png(svg_path, width=pixel_width, css=css)
 
         if protocol == "kitty":
