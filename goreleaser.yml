@@ -22,7 +22,7 @@ upx:
 
 archives:
   - name_template: '{{ .ProjectName }}_{{ replace .Version "v" "" }}_{{ .Os }}_{{ .Arch }}'
-    format: binary
+    formats: ["binary"]
 
 checksum:
   name_template: checksums.txt
