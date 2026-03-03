@@ -317,25 +317,31 @@ func scaleImageToPixels(img image.Image, targetW int, targetH int) image.Image {
 	return dst
 }
 
-func itermCellPixelSize(w io.Writer, termCols int, termRows int) (int, int) {
+func itermCellPixelSize(w io.Writer, termCols int, termRows int) (int, int, bool) {
 	pxW, pxH := terminalPixelSize(w)
-	if pxW <= 0 || pxH <= 0 {
-		pxW, pxH = terminalPixelSizeFromCSI(w, termCols, termRows)
-	}
 	if pxW > 0 && pxH > 0 && termCols > 0 && termRows > 0 {
 		cellW := int(math.Round(float64(pxW) / float64(termCols)))
 		cellH := int(math.Round(float64(pxH) / float64(termRows)))
 		if cellW > 0 && cellH > 0 {
-			return cellW, cellH
+			return cellW, cellH, false
+		}
+	}
+
+	pxW, pxH = terminalPixelSizeFromCSI(w, termCols, termRows)
+	if pxW > 0 && pxH > 0 && termCols > 0 && termRows > 0 {
+		cellW := int(math.Round(float64(pxW) / float64(termCols)))
+		cellH := int(math.Round(float64(pxH) / float64(termRows)))
+		if cellW > 0 && cellH > 0 {
+			return cellW, cellH, true
 		}
 	}
 
 	// Conservative defaults that avoid upscaling when pixel size is unknown.
-	return 8, 16
+	return 8, 16, false
 }
 
-func itermTargetPixelBounds(w io.Writer, img image.Image, termCols int, termRows int) (int, int) {
-	cellW, cellH := itermCellPixelSize(w, termCols, termRows)
+func itermTargetPixelBounds(w io.Writer, img image.Image, termCols int, termRows int) (int, int, bool) {
+	cellW, cellH, fromCSI := itermCellPixelSize(w, termCols, termRows)
 	maxW := 0
 	maxH := 0
 	if termCols > 0 && cellW > 0 {
@@ -345,7 +351,8 @@ func itermTargetPixelBounds(w io.Writer, img image.Image, termCols int, termRows
 		maxH = termRows * cellH
 	}
 
-	return fitImageToPixels(img, maxW, maxH)
+	targetW, targetH := fitImageToPixels(img, maxW, maxH)
+	return targetW, targetH, fromCSI
 }
 
 func terminalSize(w io.Writer) (int, int) {
@@ -518,21 +525,9 @@ func terminalPixelSizeFromCSI(w io.Writer, termCols int, termRows int) (int, int
 		}
 	}
 
-	scale := csiScaleFactor()
-	if scale > 1 {
-		if cellW > 0 && cellH > 0 {
-			cellW *= scale
-			cellH *= scale
-		}
-		if winW > 0 && winH > 0 {
-			winW *= scale
-			winH *= scale
-		}
-	}
-
 	fmt.Fprintf(
 		os.Stderr,
-		"frontpanel: csi response=%q cell=%dx%d win=%dx%d cols=%d rows=%d scale=%d\n",
+		"frontpanel: csi response=%q cell=%dx%d win=%dx%d cols=%d rows=%d dpr_env=%d\n",
 		resp,
 		cellW,
 		cellH,
@@ -540,7 +535,7 @@ func terminalPixelSizeFromCSI(w io.Writer, termCols int, termRows int) (int, int
 		winH,
 		termCols,
 		termRows,
-		scale,
+		csiScaleFactor(),
 	)
 
 	if cellW > 0 && cellH > 0 {
@@ -926,7 +921,31 @@ func stateOverlayColor(state string) (color.RGBA, bool) {
 
 func printITermImage(w io.Writer, img image.Image, imageName string) error {
 	cols, rows := terminalSize(w)
-	targetPxW, targetPxH := itermTargetPixelBounds(w, img, cols, rows)
+	displayPxW, displayPxH, fromCSI := itermTargetPixelBounds(w, img, cols, rows)
+	if displayPxW <= 0 || displayPxH <= 0 {
+		bounds := img.Bounds()
+		displayPxW = bounds.Dx()
+		displayPxH = bounds.Dy()
+	}
+
+	encodeScale := 1
+	if fromCSI {
+		encodeScale = csiScaleFactor()
+	}
+	if encodeScale < 1 {
+		encodeScale = 1
+	}
+	maxEncodedDim := 8192
+	maxDisplayDim := displayPxW
+	if displayPxH > maxDisplayDim {
+		maxDisplayDim = displayPxH
+	}
+	for encodeScale > 1 && maxDisplayDim*encodeScale > maxEncodedDim {
+		encodeScale--
+	}
+
+	targetPxW := displayPxW * encodeScale
+	targetPxH := displayPxH * encodeScale
 	if targetPxW <= 0 || targetPxH <= 0 {
 		bounds := img.Bounds()
 		targetPxW = bounds.Dx()
@@ -949,8 +968,8 @@ func printITermImage(w io.Writer, img image.Image, imageName string) error {
 		"\x1b]1337;File=inline=1;size=%d;name=%s;width=%dpx;height=%dpx;preserveAspectRatio=1:%s\a\n",
 		size,
 		name,
-		targetPxW,
-		targetPxH,
+		displayPxW,
+		displayPxH,
 		data,
 	)
 	return err
