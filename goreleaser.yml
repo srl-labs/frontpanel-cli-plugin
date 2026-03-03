@@ -20,10 +20,9 @@ upx:
   - enabled: true
     compress: best
 
-# archives:
-#   - name_template: '{{ .ProjectName }}_{{ replace .Version "v" "" }}_{{ .Os }}_{{ .Arch }}'
-#     files:
-#       - "plugin/show-{{ .ProjectName }}.py"
+archives:
+  - name_template: '{{ .ProjectName }}_{{ replace .Version "v" "" }}_{{ .Os }}_{{ .Arch }}'
+    format: binary
 
 checksum:
   name_template: checksums.txt
