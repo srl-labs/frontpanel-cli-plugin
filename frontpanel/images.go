@@ -11,6 +11,7 @@ import (
 	"image/draw"
 	"image/png"
 	"io"
+	"math"
 	"os"
 	"regexp"
 	"strconv"
@@ -264,15 +265,18 @@ func fitImageToCells(img image.Image, maxCols int, maxRows int) (int, int) {
 }
 
 func fitImageToPixels(img image.Image, maxW int, maxH int) (int, int) {
-	if maxW <= 0 || maxH <= 0 {
-		return 0, 0
-	}
-
 	b := img.Bounds()
 	imgW := b.Dx()
 	imgH := b.Dy()
 	if imgW <= 0 || imgH <= 0 {
 		return 0, 0
+	}
+
+	if maxW <= 0 || maxH <= 0 {
+		return imgW, imgH
+	}
+	if maxW >= imgW && maxH >= imgH {
+		return imgW, imgH
 	}
 
 	targetW := maxW
@@ -290,6 +294,51 @@ func fitImageToPixels(img image.Image, maxW int, maxH int) (int, int) {
 	}
 
 	return targetW, targetH
+}
+
+func scaleImageToPixels(img image.Image, targetW int, targetH int) image.Image {
+	if targetW <= 0 || targetH <= 0 {
+		return img
+	}
+
+	srcBounds := img.Bounds()
+	srcW := srcBounds.Dx()
+	srcH := srcBounds.Dy()
+	if targetW == srcW && targetH == srcH {
+		return img
+	}
+
+	dst := image.NewRGBA(image.Rect(0, 0, targetW, targetH))
+	xdraw.CatmullRom.Scale(dst, dst.Bounds(), img, srcBounds, xdraw.Src, nil)
+	return dst
+}
+
+func itermCellPixelSize(w io.Writer, termCols int, termRows int) (int, int) {
+	pxW, pxH := terminalPixelSize(w)
+	if pxW > 0 && pxH > 0 && termCols > 0 && termRows > 0 {
+		cellW := int(math.Round(float64(pxW) / float64(termCols)))
+		cellH := int(math.Round(float64(pxH) / float64(termRows)))
+		if cellW > 0 && cellH > 0 {
+			return cellW, cellH
+		}
+	}
+
+	// Conservative defaults that avoid upscaling when pixel size is unknown.
+	return 8, 16
+}
+
+func itermTargetPixelBounds(w io.Writer, img image.Image, termCols int, termRows int) (int, int) {
+	cellW, cellH := itermCellPixelSize(w, termCols, termRows)
+	maxW := 0
+	maxH := 0
+	if termCols > 0 && cellW > 0 {
+		maxW = termCols * cellW
+	}
+	if termRows > 0 && cellH > 0 {
+		maxH = termRows * cellH
+	}
+
+	return fitImageToPixels(img, maxW, maxH)
 }
 
 func terminalSize(w io.Writer) (int, int) {
@@ -407,47 +456,6 @@ func terminalPixelSizeFromTty() (int, int) {
 	defer tty.Close()
 
 	return terminalPixelSizeFromFile(tty)
-}
-
-func itermTargetPixelBounds(w io.Writer, termCols int, termRows int, targetCols int, targetRows int) (int, int) {
-	if targetCols <= 0 || targetRows <= 0 {
-		return 0, 0
-	}
-
-	cellW := 8
-	cellH := 16
-	pxW, pxH := terminalPixelSize(w)
-	if pxW > 0 && termCols > 0 {
-		if cw := pxW / termCols; cw > 0 {
-			cellW = cw
-		}
-	}
-	if pxH > 0 && termRows > 0 {
-		if ch := pxH / termRows; ch > 0 {
-			cellH = ch
-		}
-	}
-
-	return targetCols * cellW, targetRows * cellH
-}
-
-func scaleImageForITerm(w io.Writer, img image.Image, termCols int, termRows int, targetCols int, targetRows int) image.Image {
-	maxW, maxH := itermTargetPixelBounds(w, termCols, termRows, targetCols, targetRows)
-	targetW, targetH := fitImageToPixels(img, maxW, maxH)
-	if targetW <= 0 || targetH <= 0 {
-		return img
-	}
-
-	srcBounds := img.Bounds()
-	srcW := srcBounds.Dx()
-	srcH := srcBounds.Dy()
-	if targetW >= srcW && targetH >= srcH {
-		return img
-	}
-
-	dst := image.NewRGBA(image.Rect(0, 0, targetW, targetH))
-	xdraw.CatmullRom.Scale(dst, dst.Bounds(), img, srcBounds, xdraw.Src, nil)
-	return dst
 }
 
 func applyPortStateOverlay(chassisType string, base image.Image, portStates map[string]string) image.Image {
@@ -763,19 +771,14 @@ func stateOverlayColor(state string) (color.RGBA, bool) {
 
 func printITermImage(w io.Writer, img image.Image, imageName string) error {
 	cols, rows := terminalSize(w)
-	targetCols, targetRows := fitImageToCells(img, cols, rows)
-	if targetCols <= 0 || targetRows <= 0 {
-		targetCols = cols
-		targetRows = rows
-	}
-	if targetCols <= 0 {
-		targetCols = 80
-	}
-	if targetRows <= 0 {
-		targetRows = 24
+	targetPxW, targetPxH := itermTargetPixelBounds(w, img, cols, rows)
+	if targetPxW <= 0 || targetPxH <= 0 {
+		bounds := img.Bounds()
+		targetPxW = bounds.Dx()
+		targetPxH = bounds.Dy()
 	}
 
-	itermImg := scaleImageForITerm(w, img, cols, rows, targetCols, targetRows)
+	itermImg := scaleImageToPixels(img, targetPxW, targetPxH)
 
 	var encoded bytes.Buffer
 	if err := png.Encode(&encoded, itermImg); err != nil {
@@ -788,11 +791,11 @@ func printITermImage(w io.Writer, img image.Image, imageName string) error {
 
 	_, err := fmt.Fprintf(
 		w,
-		"\x1b]1337;File=inline=1;size=%d;name=%s;width=%d;height=%d;preserveAspectRatio=1:%s\a\n",
+		"\x1b]1337;File=inline=1;size=%d;name=%s;width=%dpx;height=%dpx;preserveAspectRatio=1:%s\a\n",
 		size,
 		name,
-		targetCols,
-		targetRows,
+		targetPxW,
+		targetPxH,
 		data,
 	)
 	return err
