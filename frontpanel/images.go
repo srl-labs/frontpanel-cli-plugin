@@ -518,9 +518,21 @@ func terminalPixelSizeFromCSI(w io.Writer, termCols int, termRows int) (int, int
 		}
 	}
 
+	scale := csiScaleFactor()
+	if scale > 1 {
+		if cellW > 0 && cellH > 0 {
+			cellW *= scale
+			cellH *= scale
+		}
+		if winW > 0 && winH > 0 {
+			winW *= scale
+			winH *= scale
+		}
+	}
+
 	fmt.Fprintf(
 		os.Stderr,
-		"frontpanel: csi response=%q cell=%dx%d win=%dx%d cols=%d rows=%d\n",
+		"frontpanel: csi response=%q cell=%dx%d win=%dx%d cols=%d rows=%d scale=%d\n",
 		resp,
 		cellW,
 		cellH,
@@ -528,6 +540,7 @@ func terminalPixelSizeFromCSI(w io.Writer, termCols int, termRows int) (int, int
 		winH,
 		termCols,
 		termRows,
+		scale,
 	)
 
 	if cellW > 0 && cellH > 0 {
@@ -538,6 +551,24 @@ func terminalPixelSizeFromCSI(w io.Writer, termCols int, termRows int) (int, int
 	}
 
 	return 0, 0
+}
+
+func csiScaleFactor() int {
+	raw := strings.TrimSpace(os.Getenv("FRONTPANEL_CSI_DPR"))
+	if raw == "" {
+		return 1
+	}
+	val, err := strconv.Atoi(raw)
+	if err != nil {
+		return 1
+	}
+	if val < 1 {
+		return 1
+	}
+	if val > 4 {
+		return 4
+	}
+	return val
 }
 
 func readCSIResponse(timeout time.Duration) []byte {
