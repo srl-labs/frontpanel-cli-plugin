@@ -7,14 +7,15 @@ topology:
       kind: nokia_srlinux
       image: ghcr.io/nokia/srlinux:25.10
       binds:
-        # mount show plugin script
-        # at tmp so we can symlink it to the plugins directory,
-        # as the files in the plugins directory will have be owned by srlinux user and group
-        - plugin/show-frontpanel.py:/tmp/show-frontpanel.py
-        # mount frontpanel binary
-        - build/frontpanel:/usr/local/bin/frontpanel
+        - plugin:/tmp/plugin
+        - frontpanel/images:/tmp/frontpanel/images
       exec:
-        - ln -s /tmp/show-frontpanel.py /etc/opt/srlinux/cli/plugins/show-frontpanel.py
+        - ln -s /tmp/plugin/show-frontpanel.py /etc/opt/srlinux/cli/plugins/show-frontpanel.py
+        - cp /tmp/plugin/bin/resvg /usr/bin/resvg
+        - mkdir -p /usr/share/fonts/frontpanel
+        - cp /tmp/plugin/fonts/Arial.ttf /usr/share/fonts/frontpanel/Arial.ttf
+        - mkdir -p /etc/opt/srlinux/frontpanel/images
+        - bash -c 'cp /tmp/frontpanel/images/*.svg /etc/opt/srlinux/frontpanel/images/'
 
     test:
       kind: linux

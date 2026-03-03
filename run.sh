@@ -79,8 +79,6 @@ function build-app {
 #################################
 function deploy-all {
 	check-clab-version
-	format
-	build-app
 	deploy-lab
 }
 
@@ -95,6 +93,7 @@ function destroy-lab {
 	containerlab destroy -c -t ${LABFILE}
 	sudo rm -rf logs/srl/* logs/frontpanel/*
 }
+
 
 function check-clab-version {
 	version=$(clab version | awk '/version:/ {print $2}')
