@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/srl-labs/ndk-frontpanel/frontpanel"
+	"github.com/srl-labs/frontpanel-cli-plugin/frontpanel"
 )
 
 var (

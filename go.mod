@@ -1,4 +1,4 @@
-module github.com/srl-labs/ndk-frontpanel
+module github.com/srl-labs/frontpanel-cli-plugin
 
 go 1.24.0
 
