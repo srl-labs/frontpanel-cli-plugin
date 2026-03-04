@@ -29,6 +29,12 @@ import (
 	"golang.org/x/term"
 )
 
+//go:embed images/7215-ixs-a1.webp
+var a1 []byte
+
+//go:embed images/7220-ixr-d1.webp
+var d1 []byte
+
 //go:embed images/7220-ixr-d2l.webp
 var d2l []byte
 
@@ -44,6 +50,12 @@ type ChassisDef struct {
 }
 
 var chassisImages = map[string]ChassisDef{
+	"7215 IXS-A1": {
+		Image: a1,
+	},
+	"7220 IXR-D1": {
+		Image: d1,
+	},
 	"7220 IXR-D2L": {
 		Image: d2l,
 	},
@@ -88,6 +100,22 @@ type portLayout struct {
 }
 
 var chassisPortLayouts = map[string]portLayout{
+	"7215 IXS-A1": {
+		topRowX: []int{178, 239, 299, 359, 419, 479, 540, 600, 682, 742, 802, 863, 922, 983, 1043, 1103, 1178, 1238, 1299, 1359, 1419, 1479, 1539, 1600},
+		botRowX: []int{178, 239, 299, 359, 419, 479, 540, 600, 682, 742, 802, 863, 922, 983, 1043, 1103, 1178, 1238, 1299, 1359, 1419, 1479, 1539, 1600},
+		topY:    42,
+		botY:    106,
+		width:   53,
+		height:  48,
+	},
+	"7220 IXR-D1": {
+		topRowX: []int{150, 208, 267, 326, 385, 445, 516, 576, 635, 694, 754, 813, 895, 955, 1015, 1073, 1133, 1192, 1264, 1323, 1383, 1441, 1501, 1560},
+		botRowX: []int{150, 208, 267, 326, 385, 445, 516, 576, 635, 694, 754, 813, 895, 955, 1015, 1073, 1133, 1192, 1264, 1323, 1383, 1441, 1501, 1560},
+		topY:    46,
+		botY:    107,
+		width:   53,
+		height:  46,
+	},
 	"7220 IXR-D2L": {
 		topRowX: []int{172, 233, 312, 374, 453, 514, 593, 655, 734, 795, 875, 936, 1015, 1077, 1156, 1217},
 		botRowX: []int{172, 233, 312, 374, 453, 514, 593, 655, 734, 795, 875, 936, 1015, 1077, 1156, 1217},
@@ -506,6 +534,10 @@ func applyPortLabelOverlay(chassisType string, base image.Image) image.Image {
 
 func portRectsForChassis(chassisType string, layout portLayout) []image.Rectangle {
 	switch chassisType {
+	case "7215 IXS-A1":
+		return a1PortRectangles(layout)
+	case "7220 IXR-D1":
+		return d1PortRectangles(layout)
 	case "7220 IXR-D2L":
 		return d2lPortRectangles(layout)
 	case "7220 IXR-D3L":
