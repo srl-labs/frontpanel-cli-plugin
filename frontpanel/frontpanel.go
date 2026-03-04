@@ -29,13 +29,19 @@ import (
 	"golang.org/x/term"
 )
 
-//go:embed images/d2l.webp
+//go:embed images/7215-ixs-a1.webp
+var a1 []byte
+
+//go:embed images/7220-ixr-d1.webp
+var d1 []byte
+
+//go:embed images/7220-ixr-d2l.webp
 var d2l []byte
 
-//go:embed images/d3l.webp
+//go:embed images/7220-ixr-d3l.webp
 var d3l []byte
 
-//go:embed images/d5.webp
+//go:embed images/7220-ixr-d5.webp
 var d5 []byte
 
 type ChassisDef struct {
@@ -44,17 +50,20 @@ type ChassisDef struct {
 }
 
 var chassisImages = map[string]ChassisDef{
+	"7215 IXS-A1": {
+		Image: a1,
+	},
+	"7220 IXR-D1": {
+		Image: d1,
+	},
 	"7220 IXR-D2L": {
 		Image: d2l,
-		URL:   "https://go.srlinux.dev/fp-d2l",
 	},
 	"7220 IXR-D3L": {
 		Image: d3l,
-		URL:   "https://go.srlinux.dev/fp-d3l",
 	},
 	"7220 IXR-D5": {
 		Image: d5,
-		URL:   "https://go.srlinux.dev/fp-d5",
 	},
 }
 
@@ -91,6 +100,22 @@ type portLayout struct {
 }
 
 var chassisPortLayouts = map[string]portLayout{
+	"7215 IXS-A1": {
+		topRowX: []int{178, 239, 299, 359, 419, 479, 540, 600, 682, 742, 802, 863, 922, 983, 1043, 1103, 1178, 1238, 1299, 1359, 1419, 1479, 1539, 1600},
+		botRowX: []int{178, 239, 299, 359, 419, 479, 540, 600, 682, 742, 802, 863, 922, 983, 1043, 1103, 1178, 1238, 1299, 1359, 1419, 1479, 1539, 1600},
+		topY:    42,
+		botY:    106,
+		width:   53,
+		height:  48,
+	},
+	"7220 IXR-D1": {
+		topRowX: []int{150, 208, 267, 326, 385, 445, 516, 576, 635, 694, 754, 813, 895, 955, 1015, 1073, 1133, 1192, 1264, 1323, 1383, 1441, 1501, 1560},
+		botRowX: []int{150, 208, 267, 326, 385, 445, 516, 576, 635, 694, 754, 813, 895, 955, 1015, 1073, 1133, 1192, 1264, 1323, 1383, 1441, 1501, 1560},
+		topY:    46,
+		botY:    107,
+		width:   53,
+		height:  46,
+	},
 	"7220 IXR-D2L": {
 		topRowX: []int{172, 233, 312, 374, 453, 514, 593, 655, 734, 795, 875, 936, 1015, 1077, 1156, 1217},
 		botRowX: []int{172, 233, 312, 374, 453, 514, 593, 655, 734, 795, 875, 936, 1015, 1077, 1156, 1217},
@@ -100,20 +125,20 @@ var chassisPortLayouts = map[string]portLayout{
 		height:  44,
 	},
 	"7220 IXR-D3L": {
-		topRowX: []int{123, 154, 184, 215, 251, 282, 312, 343, 379, 410, 440, 471, 507, 538, 568, 599},
-		botRowX: []int{123, 154, 184, 215, 251, 282, 312, 343, 379, 410, 440, 471, 507, 538, 568, 599},
-		topY:    37,
-		botY:    57,
-		width:   29,
-		height:  13,
+		topRowX: []int{273, 359, 444, 530, 623, 709, 795, 881, 974, 1060, 1146, 1232, 1325, 1411, 1497, 1583},
+		botRowX: []int{273, 359, 444, 530, 623, 709, 795, 881, 974, 1060, 1146, 1232, 1325, 1411, 1497, 1583},
+		topY:    62,
+		botY:    114,
+		width:   84,
+		height:  41,
 	},
 	"7220 IXR-D5": {
-		topRowX: []int{108, 139, 179, 210, 251, 282, 323, 354, 395, 426, 467, 498, 538, 569, 610, 641},
-		botRowX: []int{108, 139, 179, 210, 251, 282, 323, 354, 395, 426, 467, 498, 538, 569, 610, 641},
-		topY:    33,
-		botY:    56,
-		width:   30,
-		height:  14,
+		topRowX: []int{247, 334, 435, 521, 624, 710, 812, 898, 1001, 1087, 1189, 1275, 1377, 1464, 1566, 1652},
+		botRowX: []int{247, 334, 435, 521, 624, 710, 812, 898, 1001, 1087, 1189, 1275, 1377, 1464, 1566, 1652},
+		topY:    60,
+		botY:    118,
+		width:   85,
+		height:  41,
 	},
 }
 
@@ -508,96 +533,20 @@ func applyPortLabelOverlay(chassisType string, base image.Image) image.Image {
 }
 
 func portRectsForChassis(chassisType string, layout portLayout) []image.Rectangle {
-	if chassisType != "7220 IXR-D2L" {
+	switch chassisType {
+	case "7215 IXS-A1":
+		return a1PortRectangles(layout)
+	case "7220 IXR-D1":
+		return d1PortRectangles(layout)
+	case "7220 IXR-D2L":
+		return d2lPortRectangles(layout)
+	case "7220 IXR-D3L":
+		return d3lPortRectangles(layout)
+	case "7220 IXR-D5":
+		return d5PortRectangles(layout)
+	default:
 		return layout.portRects()
 	}
-	return d2lPortRects(layout)
-}
-
-func d2lPortRects(layout portLayout) []image.Rectangle {
-	if len(layout.topRowX) < 2 {
-		return nil
-	}
-
-	padX := 2
-	padY := 2
-	topY := layout.topY
-	midY := layout.botY
-	botY := 133 // D2L third row cages
-	botH := 42  // D2L third row cage height
-	topH := layout.height
-	midH := layout.height
-
-	rectFor := func(x int, y int, h int) image.Rectangle {
-		return image.Rect(x+padX, y+padY, x+layout.width-padX, y+h-padY)
-	}
-
-	rects := make([]image.Rectangle, 0, (len(layout.topRowX)/2)*6)
-	for pair := 0; pair+1 < len(layout.topRowX); pair += 2 {
-		xLeft := layout.topRowX[pair]
-		xRight := layout.topRowX[pair+1]
-
-		// D2L numbering order per 2-column block: 1 4 / 2 5 / 3 6
-		rects = append(rects,
-			rectFor(xLeft, topY, topH),
-			rectFor(xLeft, midY, midH),
-			rectFor(xLeft, botY, botH),
-			rectFor(xRight, topY, topH),
-			rectFor(xRight, midY, midH),
-			rectFor(xRight, botY, botH),
-		)
-	}
-
-	rects = append(rects, d2lRightSidePortRects()...)
-	return rects
-}
-
-func d2lRightSidePortRects() []image.Rectangle {
-	inset := func(r image.Rectangle, dx int, dy int) image.Rectangle {
-		return image.Rect(r.Min.X+dx, r.Min.Y+dy, r.Max.X-dx, r.Max.Y-dy)
-	}
-
-	splitDualCage := func(r image.Rectangle) (image.Rectangle, image.Rectangle) {
-		mid := r.Min.X + (r.Dx() / 2)
-		left := image.Rect(r.Min.X, r.Min.Y, mid, r.Max.Y)
-		right := image.Rect(mid, r.Min.Y, r.Max.X, r.Max.Y)
-		// Keep labels out of the center divider between dual cages.
-		if left.Dx() > 4 {
-			left.Max.X--
-		}
-		if right.Dx() > 4 {
-			right.Min.X++
-		}
-		return left, right
-	}
-
-	topDualCages := []image.Rectangle{
-		image.Rect(1379, 77, 1550, 118),
-		image.Rect(1568, 77, 1739, 118),
-	}
-	bottomDualCages := []image.Rectangle{
-		image.Rect(1379, 135, 1550, 176),
-		image.Rect(1568, 135, 1739, 176),
-	}
-
-	rects := make([]image.Rectangle, 0, 10)
-	for i := range topDualCages {
-		top := inset(topDualCages[i], 2, 2)
-		bottom := inset(bottomDualCages[i], 2, 2)
-
-		topLeft, topRight := splitDualCage(top)
-		bottomLeft, bottomRight := splitDualCage(bottom)
-
-		// D2L ports 49..56 are numbered odd on top, even below, left to right.
-		rects = append(rects, topLeft, bottomLeft, topRight, bottomRight)
-	}
-
-	// D2L ports 57/58 are the stacked cages at the far right.
-	rect57 := inset(image.Rect(1759, 13, 1819, 57), 2, 2)
-	rect58 := inset(image.Rect(1759, 73, 1819, 117), 2, 2)
-	rects = append(rects, rect57, rect58)
-
-	return rects
 }
 
 func (l portLayout) portRects() []image.Rectangle {
