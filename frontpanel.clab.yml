@@ -42,7 +42,7 @@ topology:
     - endpoints: ["d2l:e1-11", "test:eth11"]
     - endpoints: ["d2l:e1-12", "test:eth12"]
     - endpoints: ["d2l:e1-13", "test:eth13"]
-    - endpoints: ["d3l:e1-14", "test:eth14"]
+    - endpoints: ["d2l:e1-14", "test:eth14"]
     - endpoints: ["d2l:e1-15", "test:eth15"]
     - endpoints: ["d2l:e1-16", "test:eth16"]
     - endpoints: ["d2l:e1-17", "test:eth17"]

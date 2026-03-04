@@ -97,12 +97,12 @@ var chassisPortLayouts = map[string]portLayout{
 		height:  44,
 	},
 	"7220 IXR-D3L": {
-		topRowX: []int{278, 363, 448, 533, 630, 716, 798, 882, 980, 1045, 1088, 1192, 1331, 1410, 1492, 1583},
-		botRowX: []int{279, 365, 454, 538, 643, 729, 798, 882, 980, 1066, 1148, 1231, 1331, 1412, 1494, 1583},
-		topY:    65,
-		botY:    117,
-		width:   78,
-		height:  35,
+		topRowX: []int{273, 359, 444, 530, 623, 709, 795, 881, 974, 1060, 1146, 1232, 1325, 1411, 1497, 1583},
+		botRowX: []int{273, 359, 444, 530, 623, 709, 795, 881, 974, 1060, 1146, 1232, 1325, 1411, 1497, 1583},
+		topY:    62,
+		botY:    114,
+		width:   84,
+		height:  41,
 	},
 	"7220 IXR-D5": {
 		topRowX: []int{108, 139, 179, 210, 251, 282, 323, 354, 395, 426, 467, 498, 538, 569, 610, 641},
@@ -505,10 +505,14 @@ func applyPortLabelOverlay(chassisType string, base image.Image) image.Image {
 }
 
 func portRectsForChassis(chassisType string, layout portLayout) []image.Rectangle {
-	if chassisType != "7220 IXR-D2L" {
+	switch chassisType {
+	case "7220 IXR-D2L":
+		return d2lPortRectangles(layout)
+	case "7220 IXR-D3L":
+		return d3lPortRectangles(layout)
+	default:
 		return layout.portRects()
 	}
-	return d2lPortRectangles(layout)
 }
 
 func (l portLayout) portRects() []image.Rectangle {
