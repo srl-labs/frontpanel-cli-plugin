@@ -105,12 +105,12 @@ var chassisPortLayouts = map[string]portLayout{
 		height:  41,
 	},
 	"7220 IXR-D5": {
-		topRowX: []int{108, 139, 179, 210, 251, 282, 323, 354, 395, 426, 467, 498, 538, 569, 610, 641},
-		botRowX: []int{108, 139, 179, 210, 251, 282, 323, 354, 395, 426, 467, 498, 538, 569, 610, 641},
-		topY:    33,
-		botY:    56,
-		width:   30,
-		height:  14,
+		topRowX: []int{247, 334, 435, 521, 624, 710, 812, 898, 1001, 1087, 1189, 1275, 1377, 1464, 1566, 1652},
+		botRowX: []int{247, 334, 435, 521, 624, 710, 812, 898, 1001, 1087, 1189, 1275, 1377, 1464, 1566, 1652},
+		topY:    60,
+		botY:    118,
+		width:   85,
+		height:  41,
 	},
 }
 
@@ -510,6 +510,8 @@ func portRectsForChassis(chassisType string, layout portLayout) []image.Rectangl
 		return d2lPortRectangles(layout)
 	case "7220 IXR-D3L":
 		return d3lPortRectangles(layout)
+	case "7220 IXR-D5":
+		return d5PortRectangles(layout)
 	default:
 		return layout.portRects()
 	}
