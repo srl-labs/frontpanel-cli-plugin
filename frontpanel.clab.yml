@@ -12,7 +12,7 @@ topology:
         # as the files in the plugins directory will have be owned by srlinux user and group
         - plugin/show-frontpanel.py:/tmp/show-frontpanel.py
         # mount frontpanel binary
-        - build/frontpanel:/usr/local/bin/frontpanel
+        - build/frontpanel:/home/admin/frontpanel
       exec:
         - ln -s /tmp/show-frontpanel.py /etc/opt/srlinux/cli/plugins/show-frontpanel.py
 

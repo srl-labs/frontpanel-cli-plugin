@@ -13,6 +13,8 @@ from srlinux.mgmt.cli.cli_output import CliOutput
 from srlinux.mgmt.cli.cli_state import CliState
 from srlinux.syntax import Syntax
 
+frontpanel_bin_path = "/home/admin/frontpanel"
+
 
 class Plugin(CliPlugin):
     def _image_protocol(self):
@@ -113,7 +115,7 @@ class Plugin(CliPlugin):
 
         protocol = self._image_protocol()
         cmd = [
-            "/usr/local/bin/frontpanel",
+            frontpanel_bin_path,
             "-image",
             chassis_type,
             "-image-protocol",
