@@ -1,5 +1,5 @@
 {
-    "image": "ghcr.io/srl-labs/containerlab/devcontainer-dind-slim:0.73.0",
+    "image": "ghcr.io/srl-labs/containerlab/devcontainer-dind:0.73.0",
     "hostRequirements": {
         "cpus": 2,
         "memory": "8gb",

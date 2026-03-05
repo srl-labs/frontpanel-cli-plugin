@@ -9,91 +9,46 @@
 [codespaces-url]: https://codespaces.new/srl-labs/frontpanel-cli-plugin?quickstart=1&devcontainer_path=.devcontainer%2Fdevcontainer.json
 [w212]: https://gitlab.com/rdodin/pics/-/wikis/uploads/718a32dfa2b375cb07bcac50ae32964a/w212h1.svg
 
-This repository provides a simple SR Linux CLI extension that shows a terminal-rendered image of the device front panel using terminal image protocols ([kitty graphics protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/) and iTerm inline images / OSC 1337).
+This repository provides an [SR Linux CLI plugin](https://learn.srlinux.dev/cli/plugins/) that shows a terminal-rendered image of the device front panel using terminal image protocols ([kitty graphics protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/) and iTerm inline images / OSC 1337) with port states overlay.
 
-![A screenshot displaying the CLI plugin in action - an image of the front panel is embedded as part of the CLI output](screenshot.png)
-
-The repository includes a Containerlab topology so you can try the plugin end-to-end.
-
-## Requirements
-
-This repository is best tried out on Linux - either on a VM or bare metal works fine.
-
-You will need to have a working installation of [Golang](https://go.dev/doc/install) and [Docker](https://docs.docker.com/engine/install/) to build this application.  
-The rest of the tooling used during build and packaging are pulled from public container repository images.
-
-To try out the application, you will also need to have [Containerlab](https://containerlab.dev/install/) installed (0.68.0 or newer).  
-Additionally, _you must use a terminal application that supports either kitty graphics protocol or iTerm inline images (OSC 1337) to be able to see the embedded images in the CLI output._
-
-A short list of terminals with kitty graphics protocol support:
-
-**Mac:**
-
-- Ghostty
-- KiTTY
-- iTerm2
-
-**Linux:**
-
-- Ghostty
-- KiTTY
-- Konsole
-
-**Cross-platform:**
-
-- WezTerm
-
-**Note**: VS Code Integrated Terminal does not support kitty graphics protocol, but supports iTerm inline images when `"terminal.integrated.enableImages"` setting is enabled.
+![A screenshot displaying the CLI plugin in action - an image of the front panel is embedded as part of the CLI output](https://gitlab.com/rdodin/pics/-/wikis/uploads/1bb8b3236a7fa7954f0af2ba388496b1/image.png)
 
 ## Quick start
 
-The helper script `run.sh` can build the binary and deploy the lab:
+> If you want to see how the plugin works without having to build it yourself, you can try it out in a GitHub Codespace with the "Open in Codespaces" button at the top of this README.
 
-- `./run.sh deploy-all`
+To run the plugin locally with the provided Containerlab topology, ensure you have Go 1.24+ installed and run the below command to build the binary and deploy the lab:
 
-This will:
+```bash
+./run.sh deploy-all
+```
 
-- format source files
-- build `./build/frontpanel`
-- deploy the topology from `frontpanel.clab.yml`
+The lab contains two SR Linux nodes (7220 IXR-D2L and 7220 IXR-D3L) with different front panels, so you can try out the plugin on both by running `show platform front-panel` on each node.
 
-After deploy, run `show platform front-panel` on the SR Linux node.
+SSH into one of the nodes and run `show platform front-panel` to see the front panel image rendered directly in your terminal. The plugin will auto-detect your terminal capabilities and use the best available image protocol.
 
-## Build and package
+On top of the frontpanel image, you will see the port labels (e.g. `1/1`, `1/2`, ...) and color-coded port states:
 
-- Build only: `./run.sh build-app`
-- Package as `.deb`: `./run.sh package`
+- **green** for admin up AND oper up
+- **orange** for admin up AND oper down
+- no color for admin down
 
-Package artifacts are written to `./build/` (for example `frontpanel_*.deb`).
+Port states/color are based on the actual interface state in SR Linux.
 
-## Usage
+## Supported terminals
 
-The front panel plugin is made of 2 components:
+Depending on your terminal capabilities, the plugin will use either kitty graphics protocol or iTerm inline images (OSC 1337) to render the front panel image. If your terminal supports neither protocol, the plugin will print a URL to a high-resolution image of the front panel instead.
 
-- The binary `frontpanel`  
-This binary renders front panel images and prints them to the terminal.
-You can run it directly with `frontpanel -image "7220 IXR-D2L"`.
+| Terminal | Graphics protocol | Notes |
+| --- | --- | --- |
+| Kitty | Kitty graphics protocol | |
+| iTerm2 | iTerm inline images (OSC 1337) | |
+| VS Code Integrated Terminal | iTerm inline images (OSC 1337) | Requires `"terminal.integrated.enableImages": true` setting. On MacOS with narrow terminal windows images may appear blurry. |
+| Ghostty | Kitty graphics protocol | |
+| WezTerm | Kitty graphics protocol | |
 
-The image protocol can be selected with:
+Terminals with no image support: MacOS Terminal, PuTTY.
 
-- `-image-protocol auto|kitty|iterm` (default `auto`)
-- `FRONTPANEL_IMAGE_PROTOCOL=kitty|iterm` (env override)
-- `-port-labels` or `FRONTPANEL_PORT_LABELS=1` to overlay port numbers (`1/1`, `1/2`, ...)
-- `-port-states-json '{"ethernet-1/1":"admin-up-oper-up","ethernet-1/2":"admin-up-oper-down","ethernet-1/3":"admin-down"}'` or `FRONTPANEL_PORT_STATES_JSON` to color front ports (bright green for admin+oper up, orange for admin up+oper down, no color for admin down)
+**Note**: VS Code Integrated Terminal does not support kitty graphics protocol, but supports iTerm inline images when `"terminal.integrated.enableImages"` setting is enabled.
 
-Examples:
-
-- `frontpanel -image "7220 IXR-D2L" -image-protocol iterm`
-- `FRONTPANEL_IMAGE_PROTOCOL=iterm frontpanel -image "7220 IXR-D2L"`
-
-- The Python CLI plugin `show-frontpanel.py`  
-This plugin adds `show platform front-panel`, resolves the chassis type from SR Linux state, calls `frontpanel -image ...`, and prints a high-resolution image URL.
-
-The plugin auto-selects `kitty` when `TERM` indicates kitty or ghostty; otherwise it uses `iterm` (OSC 1337), which works better over SSH in terminals like VS Code.
-It also reads front panel interface state (`/interface[name=ethernet-*]`) and forwards it to the renderer using admin/oper-aware states.
-You can override this with `FRONTPANEL_IMAGE_PROTOCOL=kitty|iterm|auto`.
-Port labels are enabled by default in the plugin (`FRONTPANEL_PORT_LABELS=1` unless explicitly overridden).
-
-## Cleanup
-
-To destroy the test lab, run `./run.sh destroy-lab`.
+![vscode-setting](https://gitlab.com/rdodin/pics/-/wikis/uploads/b1198e1d659adee7e5fb3f4e3cffac79/image.png)
