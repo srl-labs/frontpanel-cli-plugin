@@ -37,13 +37,13 @@ type platformDef struct {
 var platformRegistry = map[string]platformDef{}
 
 func registerAllPlatforms() {
-	registerA1()
-	registerD1()
-	registerD2()
-	registerD2L()
-	registerD3()
-	registerD3L()
-	registerD5()
+	registerIXS_A1()
+	registerIXR_D1()
+	registerIXR_D2()
+	registerIXR_D2L()
+	registerIXR_D3()
+	registerIXR_D3L()
+	registerIXR_D5()
 }
 
 type imageProtocol string

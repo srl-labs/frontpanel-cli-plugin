@@ -8,7 +8,7 @@ import (
 //go:embed images/7220-ixr-d3.webp
 var d3 []byte
 
-func registerD3() {
+func registerIXR_D3() {
 	platformRegistry["7220 IXR-D3"] = platformDef{
 		image: d3,
 		layout: portLayout{

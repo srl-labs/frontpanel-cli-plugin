@@ -8,7 +8,7 @@ import (
 //go:embed images/7220-ixr-d2l.webp
 var d2l []byte
 
-func registerD2L() {
+func registerIXR_D2L() {
 	platformRegistry["7220 IXR-D2L"] = platformDef{
 		image: d2l,
 		layout: portLayout{

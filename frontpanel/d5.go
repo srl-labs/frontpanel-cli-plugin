@@ -8,7 +8,7 @@ import (
 //go:embed images/7220-ixr-d5.webp
 var d5 []byte
 
-func registerD5() {
+func registerIXR_D5() {
 	platformRegistry["7220 IXR-D5"] = platformDef{
 		image: d5,
 		layout: portLayout{

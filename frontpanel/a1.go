@@ -8,7 +8,7 @@ import (
 //go:embed images/7215-ixs-a1.webp
 var a1 []byte
 
-func registerA1() {
+func registerIXS_A1() {
 	platformRegistry["7215 IXS-A1"] = platformDef{
 		image: a1,
 		layout: portLayout{
