@@ -35,6 +35,21 @@ On top of the frontpanel image, you will see the port labels (e.g. `1/1`, `1/2`,
 
 Port states/color are based on the actual interface state in SR Linux.
 
+## Supported platforms
+
+Added platforms are listed below. Request new platforms by opening an issue.
+
+| Platform |
+| --- |
+| 7215 IXS-A1 |
+| 7220 IXR-D1 |
+| 7220 IXR-D2 |
+| 7220 IXR-D2L |
+| 7220 IXR-D3 |
+| 7220 IXR-D3L |
+| 7220 IXR-D5 |
+| 7730 SXR-1x-44S |
+
 ## Supported terminals
 
 Depending on your terminal capabilities, the plugin will use either kitty graphics protocol or iTerm inline images (OSC 1337) to render the front panel image. If your terminal supports neither protocol, the plugin will print a URL to a high-resolution image of the front panel instead.
