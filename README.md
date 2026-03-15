@@ -64,6 +64,6 @@ Depending on your terminal capabilities, the plugin will use either kitty graphi
 
 Terminals with no image support: MacOS Terminal, PuTTY.
 
-**Note**: VS Code Integrated Terminal does not support kitty graphics protocol, but supports iTerm inline images when `"terminal.integrated.enableImages"` setting is enabled.
+**Note**: VS Code Integrated Terminal [started supporting kitty graphics protocol in version 1.110](https://code.visualstudio.com/updates/v1_110#_terminal), prior to that it supported iTerm inline images when `"terminal.integrated.enableImages"` setting is enabled.
 
 ![vscode-setting](https://gitlab.com/rdodin/pics/-/wikis/uploads/b1198e1d659adee7e5fb3f4e3cffac79/image.png)
