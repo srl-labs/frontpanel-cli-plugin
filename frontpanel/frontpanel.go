@@ -41,6 +41,7 @@ func registerAllPlatforms() {
 	registerD1()
 	registerD2()
 	registerD2L()
+	registerD3()
 	registerD3L()
 	registerD5()
 }
