@@ -2,7 +2,6 @@ package frontpanel
 
 import (
 	"bytes"
-	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -29,42 +28,21 @@ import (
 	"golang.org/x/term"
 )
 
-//go:embed images/7215-ixs-a1.webp
-var a1 []byte
-
-//go:embed images/7220-ixr-d1.webp
-var d1 []byte
-
-//go:embed images/7220-ixr-d2l.webp
-var d2l []byte
-
-//go:embed images/7220-ixr-d3l.webp
-var d3l []byte
-
-//go:embed images/7220-ixr-d5.webp
-var d5 []byte
-
-type ChassisDef struct {
-	Image []byte
-	URL   string
+type platformDef struct {
+	image     []byte
+	layout    portLayout
+	portRects func(portLayout) []image.Rectangle
 }
 
-var chassisImages = map[string]ChassisDef{
-	"7215 IXS-A1": {
-		Image: a1,
-	},
-	"7220 IXR-D1": {
-		Image: d1,
-	},
-	"7220 IXR-D2L": {
-		Image: d2l,
-	},
-	"7220 IXR-D3L": {
-		Image: d3l,
-	},
-	"7220 IXR-D5": {
-		Image: d5,
-	},
+var platformRegistry = map[string]platformDef{}
+
+func registerAllPlatforms() {
+	registerA1()
+	registerD1()
+	registerD2()
+	registerD2L()
+	registerD3L()
+	registerD5()
 }
 
 type imageProtocol string
@@ -97,49 +75,6 @@ type portLayout struct {
 	botY    int
 	width   int
 	height  int
-}
-
-var chassisPortLayouts = map[string]portLayout{
-	"7215 IXS-A1": {
-		topRowX: []int{178, 239, 299, 359, 419, 479, 540, 600, 682, 742, 802, 863, 922, 983, 1043, 1103, 1178, 1238, 1299, 1359, 1419, 1479, 1539, 1600},
-		botRowX: []int{178, 239, 299, 359, 419, 479, 540, 600, 682, 742, 802, 863, 922, 983, 1043, 1103, 1178, 1238, 1299, 1359, 1419, 1479, 1539, 1600},
-		topY:    42,
-		botY:    106,
-		width:   53,
-		height:  48,
-	},
-	"7220 IXR-D1": {
-		topRowX: []int{150, 208, 267, 326, 385, 445, 516, 576, 635, 694, 754, 813, 895, 955, 1015, 1073, 1133, 1192, 1264, 1323, 1383, 1441, 1501, 1560},
-		botRowX: []int{150, 208, 267, 326, 385, 445, 516, 576, 635, 694, 754, 813, 895, 955, 1015, 1073, 1133, 1192, 1264, 1323, 1383, 1441, 1501, 1560},
-		topY:    46,
-		botY:    107,
-		width:   53,
-		height:  46,
-	},
-	"7220 IXR-D2L": {
-		topRowX: []int{172, 233, 312, 374, 453, 514, 593, 655, 734, 795, 875, 936, 1015, 1077, 1156, 1217},
-		botRowX: []int{172, 233, 312, 374, 453, 514, 593, 655, 734, 795, 875, 936, 1015, 1077, 1156, 1217},
-		topY:    13,
-		botY:    73,
-		width:   59,
-		height:  44,
-	},
-	"7220 IXR-D3L": {
-		topRowX: []int{273, 359, 444, 530, 623, 709, 795, 881, 974, 1060, 1146, 1232, 1325, 1411, 1497, 1583},
-		botRowX: []int{273, 359, 444, 530, 623, 709, 795, 881, 974, 1060, 1146, 1232, 1325, 1411, 1497, 1583},
-		topY:    62,
-		botY:    114,
-		width:   84,
-		height:  41,
-	},
-	"7220 IXR-D5": {
-		topRowX: []int{247, 334, 435, 521, 624, 710, 812, 898, 1001, 1087, 1189, 1275, 1377, 1464, 1566, 1652},
-		botRowX: []int{247, 334, 435, 521, 624, 710, 812, 898, 1001, 1087, 1189, 1275, 1377, 1464, 1566, 1652},
-		topY:    60,
-		botY:    118,
-		width:   85,
-		height:  41,
-	},
 }
 
 func parseImageProtocol(v string) imageProtocol {
@@ -195,8 +130,10 @@ func PrintWithProtocolAndPortStatesAndLabels(chassisType string, protocol string
 }
 
 func printWithProtocol(chassisType string, protocol imageProtocol, portStates map[string]string, portLabels bool) {
-	if chassisDef, ok := chassisImages[chassisType]; ok {
-		f := bytes.NewReader(chassisDef.Image)
+	registerAllPlatforms()
+
+	if def, ok := platformRegistry[chassisType]; ok {
+		f := bytes.NewReader(def.image)
 		img, _, err := image.Decode(f)
 		if err != nil {
 			return
@@ -480,12 +417,12 @@ func applyPortStateOverlay(chassisType string, base image.Image, portStates map[
 		return base
 	}
 
-	layout, ok := chassisPortLayouts[chassisType]
-	if !ok {
+	def, ok := platformRegistry[chassisType]
+	if !ok || def.portRects == nil {
 		return base
 	}
 
-	rects := portRectsForChassis(chassisType, layout)
+	rects := def.portRects(def.layout)
 	if len(rects) == 0 {
 		return base
 	}
@@ -512,12 +449,12 @@ func applyPortStateOverlay(chassisType string, base image.Image, portStates map[
 }
 
 func applyPortLabelOverlay(chassisType string, base image.Image) image.Image {
-	layout, ok := chassisPortLayouts[chassisType]
-	if !ok {
+	def, ok := platformRegistry[chassisType]
+	if !ok || def.portRects == nil {
 		return base
 	}
 
-	rects := portRectsForChassis(chassisType, layout)
+	rects := def.portRects(def.layout)
 	if len(rects) == 0 {
 		return base
 	}
@@ -530,34 +467,6 @@ func applyPortLabelOverlay(chassisType string, base image.Image) image.Image {
 	}
 
 	return dst
-}
-
-func portRectsForChassis(chassisType string, layout portLayout) []image.Rectangle {
-	switch chassisType {
-	case "7215 IXS-A1":
-		return a1PortRectangles(layout)
-	case "7220 IXR-D1":
-		return d1PortRectangles(layout)
-	case "7220 IXR-D2L":
-		return d2lPortRectangles(layout)
-	case "7220 IXR-D3L":
-		return d3lPortRectangles(layout)
-	case "7220 IXR-D5":
-		return d5PortRectangles(layout)
-	default:
-		return layout.portRects()
-	}
-}
-
-func (l portLayout) portRects() []image.Rectangle {
-	rects := make([]image.Rectangle, 0, len(l.topRowX)+len(l.botRowX))
-	for _, x := range l.topRowX {
-		rects = append(rects, image.Rect(x, l.topY, x+l.width, l.topY+l.height))
-	}
-	for _, x := range l.botRowX {
-		rects = append(rects, image.Rect(x, l.botY, x+l.width, l.botY+l.height))
-	}
-	return rects
 }
 
 func drawPortOverlay(dst *image.RGBA, rect image.Rectangle, fillBase color.RGBA) {

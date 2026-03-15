@@ -1,6 +1,33 @@
 package frontpanel
 
-import "image"
+import (
+	_ "embed"
+	"image"
+)
+
+//go:embed images/7215-ixs-a1.webp
+var a1 []byte
+
+func registerA1() {
+	platformRegistry["7215 IXS-A1"] = platformDef{
+		image: a1,
+		layout: portLayout{
+			topRowX: []int{
+				178, 239, 299, 359, 419, 479, 540, 600, 682, 742, 802, 863, 922, 983, 1043, 1103,
+				1178, 1238, 1299, 1359, 1419, 1479, 1539, 1600,
+			},
+			botRowX: []int{
+				178, 239, 299, 359, 419, 479, 540, 600, 682, 742, 802, 863, 922, 983, 1043, 1103,
+				1178, 1238, 1299, 1359, 1419, 1479, 1539, 1600,
+			},
+			topY:   42,
+			botY:   106,
+			width:  53,
+			height: 48,
+		},
+		portRects: a1PortRectangles,
+	}
+}
 
 func a1PortRectangles(layout portLayout) []image.Rectangle {
 	padX := 2

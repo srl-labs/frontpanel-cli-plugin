@@ -1,6 +1,27 @@
 package frontpanel
 
-import "image"
+import (
+	_ "embed"
+	"image"
+)
+
+//go:embed images/7220-ixr-d5.webp
+var d5 []byte
+
+func registerD5() {
+	platformRegistry["7220 IXR-D5"] = platformDef{
+		image: d5,
+		layout: portLayout{
+			topRowX: []int{247, 334, 435, 521, 624, 710, 812, 898, 1001, 1087, 1189, 1275, 1377, 1464, 1566, 1652},
+			botRowX: []int{247, 334, 435, 521, 624, 710, 812, 898, 1001, 1087, 1189, 1275, 1377, 1464, 1566, 1652},
+			topY:    60,
+			botY:    118,
+			width:   85,
+			height:  41,
+		},
+		portRects: d5PortRectangles,
+	}
+}
 
 func d5PortRectangles(layout portLayout) []image.Rectangle {
 	padX := 2

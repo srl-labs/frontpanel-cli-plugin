@@ -1,6 +1,27 @@
 package frontpanel
 
-import "image"
+import (
+	_ "embed"
+	"image"
+)
+
+//go:embed images/7220-ixr-d2l.webp
+var d2l []byte
+
+func registerD2L() {
+	platformRegistry["7220 IXR-D2L"] = platformDef{
+		image: d2l,
+		layout: portLayout{
+			topRowX: []int{172, 233, 312, 374, 453, 514, 593, 655, 734, 795, 875, 936, 1015, 1077, 1156, 1217},
+			botRowX: []int{172, 233, 312, 374, 453, 514, 593, 655, 734, 795, 875, 936, 1015, 1077, 1156, 1217},
+			topY:    13,
+			botY:    73,
+			width:   59,
+			height:  44,
+		},
+		portRects: d2lPortRectangles,
+	}
+}
 
 func d2lPortRectangles(layout portLayout) []image.Rectangle {
 	if len(layout.topRowX) < 2 {
