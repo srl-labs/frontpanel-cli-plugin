@@ -58,7 +58,7 @@ Depending on your terminal capabilities, the plugin will use either kitty graphi
 | --- | --- | --- |
 | Kitty | Kitty graphics protocol | |
 | iTerm2 | iTerm inline images (OSC 1337) | |
-| VS Code Integrated Terminal | iTerm inline images (OSC 1337) | Requires `"terminal.integrated.enableImages": true` setting. On MacOS with narrow terminal windows images may appear blurry. |
+| VS Code Integrated Terminal | Kitty graphics protocol (>=1.110.1) and iTerm images (<1.110.1) | Requires `"terminal.integrated.enableImages": true` setting. On MacOS with narrow terminal windows images may appear blurry. |
 | Ghostty | Kitty graphics protocol | |
 | WezTerm | Kitty graphics protocol | |
 
