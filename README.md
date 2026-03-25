@@ -13,6 +13,14 @@ This repository provides an [SR Linux CLI plugin](https://learn.srlinux.dev/cli/
 
 ![A screenshot displaying the CLI plugin in action - an image of the front panel is embedded as part of the CLI output](https://gitlab.com/rdodin/pics/-/wikis/uploads/1bb8b3236a7fa7954f0af2ba388496b1/image.png)
 
+## Demo
+
+Click on the preview image to view a demo on YouTube.
+
+[![Watch the video](https://img.youtube.com/vi/-flkq5MpBOA/hqdefault.jpg)](https://www.youtube.com/watch?v=-flkq5MpBOA)
+
+Leave your comments on [LinkedIn](https://www.linkedin.com/feed/update/urn:li:activity:7435277879200014337).
+
 ## Quick start
 
 > If you want to see how the plugin works without having to build it yourself, you can try it out in a GitHub Codespace with the "Open in Codespaces" button at the top of this README.
