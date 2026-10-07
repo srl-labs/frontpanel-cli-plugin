@@ -153,7 +153,3 @@ class Plugin(CliPlugin):
             output.print(
                 f"Failed to render front panel image (protocol={protocol}): {proc.stderr.strip()}"
             )
-
-        output.print(
-            f"\n\n⚡ High resolution image: https://go.srlinux.dev/img-{chassis_type.replace(' ', '-').lower()}\n"
-        )

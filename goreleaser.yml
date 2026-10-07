@@ -45,7 +45,7 @@ nfpms:
     maintainer: vista <vista@birb.network>, roman <roman@dodin.dev>
     homepage: https://learn.srlinux.dev
     description: |
-      Front Panel CLI plugin for Nokia SR Linux. Provides a command to display the front panel status and a high resolution image url of the front panel.
+      Front Panel CLI plugin for Nokia SR Linux. Provides a command to display the front panel status.
     vendor: Nokia
     license: GNU GPLv3
     formats:

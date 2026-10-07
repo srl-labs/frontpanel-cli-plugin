@@ -64,7 +64,7 @@ Added platforms are listed below. Request new platforms by opening an issue.
 
 ## Supported terminals
 
-Depending on your terminal capabilities, the plugin will use either kitty graphics protocol or iTerm inline images (OSC 1337) to render the front panel image. If your terminal supports neither protocol, the plugin will print a URL to a high-resolution image of the front panel instead.
+Depending on your terminal capabilities, the plugin will use either kitty graphics protocol or iTerm inline images (OSC 1337) to render the front panel image.
 
 | Terminal | Graphics protocol | Notes |
 | --- | --- | --- |
