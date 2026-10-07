@@ -43,6 +43,52 @@ On top of the frontpanel image, you will see the port labels (e.g. `1/1`, `1/2`,
 
 Port states/color are based on the actual interface state in SR Linux.
 
+## Build and install on an SR Linux node
+
+Use these steps to test a branch on a physical or virtual SR Linux node before
+creating a release. Go 1.24 or newer is required on the build host.
+
+First, determine the node architecture:
+
+```bash
+BOX=admin@<node-address>
+ssh "$BOX" uname -m
+```
+
+Use `amd64` for an `x86_64` node or `arm64` for an `aarch64` node, then build a
+static Linux binary:
+
+```bash
+export GOARCH=amd64 # or arm64
+VERSION=$(git describe --tags --always --dirty)
+COMMIT=$(git rev-parse --short HEAD)
+
+mkdir -p build
+CGO_ENABLED=0 GOOS=linux GOARCH="$GOARCH" \
+  go build -trimpath \
+  -ldflags="-s -w -X main.version=$VERSION -X main.commit=$COMMIT" \
+  -o build/frontpanel .
+```
+
+Copy the binary and CLI plugin to the node:
+
+```bash
+scp build/frontpanel plugin/show-frontpanel.py "$BOX":/tmp/
+ssh -t "$BOX" \
+  'sudo install -m 0755 /tmp/frontpanel /usr/local/bin/frontpanel &&
+   sudo install -o srlinux -g srlinux -m 0644 /tmp/show-frontpanel.py \
+     /etc/opt/srlinux/cli/plugins/show-frontpanel.py'
+```
+
+Start a new SR Linux CLI session so the plugin is loaded, then verify it:
+
+```text
+show platform front-panel
+```
+
+Confirm that the displayed platform matches `/platform/chassis/type` and that
+each `1/N` overlay corresponds to `ethernet-1/N` before releasing.
+
 ## Supported platforms
 
 Added platforms are listed below. Request new platforms by opening an issue.
