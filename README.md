@@ -56,6 +56,10 @@ Added platforms are listed below. Request new platforms by opening an issue.
 | 7220 IXR-D3 |
 | 7220 IXR-D3L |
 | 7220 IXR-D5 |
+| 7250 IXR-X1B |
+| 7250 IXR-X3B |
+| 7250 IXR-X4 |
+| 7250 IXR-X4-OSFP |
 | 7730 SXR-1x-44S |
 
 ## Supported terminals
