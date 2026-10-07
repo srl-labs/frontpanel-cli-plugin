@@ -43,6 +43,55 @@ On top of the frontpanel image, you will see the port labels (e.g. `1/1`, `1/2`,
 
 Port states/color are based on the actual interface state in SR Linux.
 
+## Build and install on an SR Linux node
+
+Use these steps to test a branch on a physical or virtual SR Linux node before
+creating a release. Go 1.24 or newer is required on the build host.
+
+SSH to an SR Linux node opens the SR Linux CLI, not a Linux shell. Run Linux
+commands as one line through the CLI `bash` command. A newline is rejected, and
+`bash -c` or `bash -lc` is not valid here: the CLI already runs `bash -c` on
+the command text.
+
+First, determine the node architecture:
+
+```bash
+BOX=admin@<node-address>
+ssh -t "$BOX" 'bash "uname -m"'
+```
+
+Use `amd64` for an `x86_64` node or `arm64` for an `aarch64` node, then build a
+static Linux binary:
+
+```bash
+export GOARCH=amd64 # or arm64
+VERSION=$(git describe --tags --always --dirty)
+COMMIT=$(git rev-parse --short HEAD)
+
+mkdir -p build
+CGO_ENABLED=0 GOOS=linux GOARCH="$GOARCH" \
+  go build -trimpath \
+  -ldflags="-s -w -X main.version=$VERSION -X main.commit=$COMMIT" \
+  -o build/frontpanel .
+```
+
+Copy the binary and CLI plugin to the node, then install them:
+
+```bash
+scp build/frontpanel plugin/show-frontpanel.py "$BOX":/tmp/
+ssh -t "$BOX" 'bash "sudo install -m 0755 /tmp/frontpanel /usr/local/bin/frontpanel"'
+ssh -t "$BOX" 'bash "sudo install -o srlinux -g srlinux -m 0644 /tmp/show-frontpanel.py /etc/opt/srlinux/cli/plugins/show-frontpanel.py"'
+```
+
+Start a new SR Linux CLI session so the plugin is loaded, then verify it:
+
+```text
+show platform front-panel
+```
+
+Confirm that the displayed platform matches `/platform/chassis/type` and that
+each `1/N` overlay corresponds to `ethernet-1/N` before releasing.
+
 ## Supported platforms
 
 Added platforms are listed below. Request new platforms by opening an issue.
@@ -56,11 +105,14 @@ Added platforms are listed below. Request new platforms by opening an issue.
 | 7220 IXR-D3 |
 | 7220 IXR-D3L |
 | 7220 IXR-D5 |
-| 7730 SXR-1x-44S |
+| 7250 IXR-X1B |
+| 7250 IXR-X3B |
+| 7250 IXR-X4 |
+| 7250 IXR-X4-OSFP |
 
 ## Supported terminals
 
-Depending on your terminal capabilities, the plugin will use either kitty graphics protocol or iTerm inline images (OSC 1337) to render the front panel image. If your terminal supports neither protocol, the plugin will print a URL to a high-resolution image of the front panel instead.
+Depending on your terminal capabilities, the plugin will use either kitty graphics protocol or iTerm inline images (OSC 1337) to render the front panel image.
 
 | Terminal | Graphics protocol | Notes |
 | --- | --- | --- |
