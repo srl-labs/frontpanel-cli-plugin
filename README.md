@@ -109,7 +109,6 @@ Added platforms are listed below. Request new platforms by opening an issue.
 | 7250 IXR-X3B |
 | 7250 IXR-X4 |
 | 7250 IXR-X4-OSFP |
-| 7730 SXR-1x-44S |
 
 ## Supported terminals
 

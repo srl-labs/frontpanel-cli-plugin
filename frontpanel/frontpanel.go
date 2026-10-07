@@ -48,7 +48,6 @@ func registerAllPlatforms() {
 	registerIXR_X3B()
 	registerIXR_X4()
 	registerIXR_X4_OSFP()
-	registerSXR_1X_44S()
 }
 
 type imageProtocol string
